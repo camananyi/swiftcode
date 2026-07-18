@@ -20,7 +20,7 @@
   },
   "models": {
     "stt": "whisper-large-v3",
-    "llm": "llama-3.1-8b"
+    "llm": "llama3.1-8b"
   },
   "claude": {
     "model": "claude-sonnet-5",
