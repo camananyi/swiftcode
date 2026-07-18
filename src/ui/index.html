@@ -273,6 +273,57 @@
   .confirm-card .confirm-btn { background: var(--ok); color: #06231a; }
   .confirm-card .reject-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
   #confirm-empty { color: var(--text-dim); font-size: 13px; padding: 8px 4px; }
+
+  #summary-panel {
+    display: none;
+    grid-column: 1 / 3;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 16px 20px 20px;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+  #summary-panel.visible { display: block; }
+  #summary-panel h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin: 0 0 10px;
+  }
+  .summary-jobs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .summary-job {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .summary-job .job-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  .summary-job .job-status {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .summary-job .job-status.queued { color: var(--warning); }
+  .summary-job .job-status.failed { color: var(--alert); }
+  .summary-job .job-status.completed { color: var(--ok); }
+  .summary-job .job-text {
+    font-size: 13px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    max-height: 260px;
+    overflow-y: auto;
+  }
 </style>
 </head>
 <body>
@@ -316,6 +367,22 @@
     <div id="confirm-panel">
       <h2>Confirm Queue</h2>
       <div id="confirm-list"><div id="confirm-empty">Nothing waiting on confirmation.</div></div>
+    </div>
+  </section>
+
+  <section id="summary-panel">
+    <h2>Post-Event Summary</h2>
+    <div class="summary-jobs">
+      <div class="summary-job" id="summary-job-code_record">
+        <div class="job-title">Code Record</div>
+        <div class="job-status" id="summary-status-code_record">Generating...</div>
+        <div class="job-text" id="summary-text-code_record"></div>
+      </div>
+      <div class="summary-job" id="summary-job-debrief">
+        <div class="job-title">Plus/Delta Debrief</div>
+        <div class="job-status" id="summary-status-debrief">Generating...</div>
+        <div class="job-text" id="summary-text-debrief"></div>
+      </div>
     </div>
   </section>
 </main>
@@ -462,6 +529,25 @@
     transcriptEl.scrollTop = transcriptEl.scrollHeight;
   }
 
+  const summaryPanel = document.getElementById("summary-panel");
+  const SUMMARY_STATUS_TEXT = {
+    completed: "Ready",
+    queued: "Debrief queued. Will generate when connectivity returns.",
+    failed: "Failed",
+  };
+
+  function renderSummaryJob(msg) {
+    summaryPanel.classList.add("visible");
+    const statusEl = document.getElementById("summary-status-" + msg.name);
+    const textEl = document.getElementById("summary-text-" + msg.name);
+    if (!statusEl || !textEl) return;
+
+    statusEl.className = "job-status " + msg.status;
+    statusEl.textContent =
+      msg.status === "failed" && msg.error ? "Failed: " + msg.error : SUMMARY_STATUS_TEXT[msg.status] || msg.status;
+    textEl.textContent = msg.text || "";
+  }
+
   function applyTimerStatus(card, status) {
     card.classList.remove("status-ok", "status-warning", "status-alert");
     if (status && status !== "none") card.classList.add("status-" + status);
@@ -510,6 +596,9 @@
         renderTimeline();
         renderConfirmQueue();
         renderTimers();
+        for (const [name, result] of Object.entries(msg.summary || {})) {
+          renderSummaryJob({ name, ...result });
+        }
       } else if (msg.type === "event") {
         if (msg.kind === "logged") {
           state.log.push(msg.payload);
@@ -528,6 +617,8 @@
         renderTimers();
       } else if (msg.type === "transcript") {
         renderTranscriptSegment(msg.segment);
+      } else if (msg.type === "summary") {
+        renderSummaryJob(msg);
       }
     });
 

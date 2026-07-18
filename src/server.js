@@ -9,6 +9,7 @@ import { seedDemoEvents } from "./pipeline/demo-seed.js";
 import { AudioChunker } from "./pipeline/stt.js";
 import { matchRules } from "./pipeline/rules.js";
 import { extractEvent } from "./pipeline/extract.js";
+import { runPostEventSummary, SummaryQueue } from "./pipeline/summary.js";
 
 const config = getConfig();
 const store = new EventStore({ confidence_threshold: config.extraction.confidence_threshold });
@@ -63,12 +64,41 @@ function snapshotMessage() {
     log: store.getLog(),
     pending: store.getPending(),
     timers: computeDisplay(currentTimerState(), Date.now(), config.timers),
+    summary: summaryResults,
   };
+}
+
+// Latest known status per job name, kept so a client that joins (or reconnects) after
+// ROSC/termination still sees the record instead of missing the broadcast entirely.
+const summaryResults = {};
+
+function setSummaryResult(name, result) {
+  summaryResults[name] = result;
+  broadcast({ type: "summary", name, ...result });
+}
+
+const summaryQueue = new SummaryQueue({
+  onStatusChange: ({ status, job, text, error }) => setSummaryResult(job.name, { status, text, error }),
+});
+
+// ROSC/termination triggers the two Claude call sites exactly once per code. Never
+// called anywhere in the real-time loop.
+let summaryTriggered = false;
+async function triggerPostEventSummary() {
+  const results = await runPostEventSummary(store.getLog(), summaryQueue, config);
+  for (const [name, result] of Object.entries(results)) {
+    setSummaryResult(name, result);
+  }
 }
 
 store.onChange((kind, payload) => {
   broadcast({ type: "event", kind, payload });
   broadcast(timersMessage());
+
+  if (kind === "logged" && !summaryTriggered && (payload.event_type === "rosc_achieved" || payload.event_type === "code_terminated")) {
+    summaryTriggered = true;
+    triggerPostEventSummary();
+  }
 });
 
 // Timers advance on wall-clock time, so the UI needs a heartbeat independent of new events.
@@ -129,4 +159,4 @@ const server = Bun.serve({
 
 console.log(`SwiftCode listening on http://localhost:${server.port} (profile: ${config.profileName})`);
 
-export { store, server, config, broadcast, chunker, handleTranscriptSegment };
+export { store, server, config, broadcast, chunker, handleTranscriptSegment, summaryQueue };

@@ -44,5 +44,12 @@ export function seedDemoEvents(store) {
     confidence: 0.3,
   });
 
+  // Only end the code (and trigger post-event summary generation) when explicitly asked
+  // — the default seed leaves timers running so the live-ticking demo is visible.
+  if (process.env.SWIFTCODE_SEED_ROSC === "1") {
+    const roscEvent = matchRules("we have ROSC", codeStartedAt + 260_000);
+    if (roscEvent) store.ingest(roscEvent);
+  }
+
   console.log(`[demo-seed] seeded ${store.getLog().length} logged events, ${store.getPending().length} pending`);
 }
