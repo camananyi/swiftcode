@@ -7,6 +7,7 @@
     "dev": "bun --watch src/server.js",
     "start": "bun src/server.js",
     "preflight": "bun src/preflight.js",
-    "test": "bun test"
+    "test": "bun test",
+    "generate-audio": "bun scripts/generate-demo-audio.js"
   }
 }

@@ -9,7 +9,7 @@ import { seedDemoEvents } from "./pipeline/demo-seed.js";
 import { AudioChunker } from "./pipeline/stt.js";
 import { matchRules } from "./pipeline/rules.js";
 import { extractEvent } from "./pipeline/extract.js";
-import { runPostEventSummary, SummaryQueue } from "./pipeline/summary.js";
+import { runPostEventSummary, SummaryQueue, answerJudgeQuestion } from "./pipeline/summary.js";
 import { buildStructuredExport, buildMarkdownExport } from "./pipeline/export.js";
 import { replayWavFile } from "./pipeline/replay.js";
 
@@ -181,6 +181,18 @@ const server = Bun.serve({
       return new Response(JSON.stringify(body, null, 2), {
         headers: { "Content-Type": "application/json", "Content-Disposition": "attachment; filename=swiftcode-record.json" },
       });
+    }
+
+    // Optional call site: ask a factual question about the completed code, grounded
+    // only in the structured event log. Never used in the real-time loop.
+    if (url.pathname === "/api/judge-qa" && req.method === "POST") {
+      const { question } = await req.json();
+      try {
+        const answer = await answerJudgeQuestion(question, store.getLog(), config);
+        return Response.json({ ok: true, answer });
+      } catch (err) {
+        return Response.json({ ok: false, error: err.message }, { status: 502 });
+      }
     }
 
     if (url.pathname === "/api/export.md" && req.method === "GET") {

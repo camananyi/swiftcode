@@ -57,10 +57,10 @@ function report(label, check) {
 
 if (import.meta.main) {
   const results = await checkAll();
-  console.log(`SwiftCode preflight — profile "${results.profileName}"`);
+  console.log(`SwiftCode preflight: profile "${results.profileName}"`);
   console.log(`  SWIFT_API_KEY set: ${results.swift_api_key_set}`);
   report(`STT (${results.stt_base_url})`, results.stt);
   report(`LLM (${results.llm_base_url})`, results.llm);
   report("Claude API", results.claude);
-  console.log("\nRules layer + timers work regardless of the above — this is diagnostic only.");
+  console.log("\nRules layer + timers work regardless of the above. This is diagnostic only.");
 }
