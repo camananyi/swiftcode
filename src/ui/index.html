@@ -289,7 +289,34 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-dim);
-    margin: 0 0 10px;
+    margin: 0;
+  }
+  .summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .export-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .export-label {
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .export-actions button {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
   }
   .summary-jobs {
     display: grid;
@@ -371,7 +398,14 @@
   </section>
 
   <section id="summary-panel">
-    <h2>Post-Event Summary</h2>
+    <div class="summary-header">
+      <h2>Post-Event Summary</h2>
+      <div class="export-actions">
+        <span class="export-label">Export to documentation platform</span>
+        <button id="export-json">Download JSON</button>
+        <button id="export-md">Download Markdown</button>
+      </div>
+    </div>
     <div class="summary-jobs">
       <div class="summary-job" id="summary-job-code_record">
         <div class="job-title">Code Record</div>
@@ -719,6 +753,13 @@
     } catch (err) {
       alert("Microphone access failed: " + err.message);
     }
+  });
+
+  document.getElementById("export-json").addEventListener("click", () => {
+    window.location = "/api/export.json";
+  });
+  document.getElementById("export-md").addEventListener("click", () => {
+    window.location = "/api/export.md";
   });
 
   connectWebSocket();

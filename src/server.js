@@ -10,6 +10,7 @@ import { AudioChunker } from "./pipeline/stt.js";
 import { matchRules } from "./pipeline/rules.js";
 import { extractEvent } from "./pipeline/extract.js";
 import { runPostEventSummary, SummaryQueue } from "./pipeline/summary.js";
+import { buildStructuredExport, buildMarkdownExport } from "./pipeline/export.js";
 
 const config = getConfig();
 const store = new EventStore({ confidence_threshold: config.extraction.confidence_threshold });
@@ -138,6 +139,24 @@ const server = Bun.serve({
       const { id } = await req.json();
       const event = store.rejectPending(id);
       return Response.json({ ok: Boolean(event), event });
+    }
+
+    if (url.pathname === "/api/export.json" && req.method === "GET") {
+      const body = buildStructuredExport(store.getLog(), { profileName: config.profileName });
+      return new Response(JSON.stringify(body, null, 2), {
+        headers: { "Content-Type": "application/json", "Content-Disposition": "attachment; filename=swiftcode-record.json" },
+      });
+    }
+
+    if (url.pathname === "/api/export.md" && req.method === "GET") {
+      const body = buildMarkdownExport(store.getLog(), {
+        profileName: config.profileName,
+        narrativeText: summaryResults.code_record?.text,
+        debriefText: summaryResults.debrief?.text,
+      });
+      return new Response(body, {
+        headers: { "Content-Type": "text/markdown", "Content-Disposition": "attachment; filename=swiftcode-record.md" },
+      });
     }
 
     return new Response("Not found", { status: 404 });
