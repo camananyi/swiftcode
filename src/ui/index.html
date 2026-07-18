@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SwiftCode</title>
+<style>
+  :root {
+    --bg: #0a0c10;
+    --panel: #12161d;
+    --panel-2: #171c25;
+    --border: #262d39;
+    --text: #e6ebf2;
+    --text-dim: #8b96a8;
+    --ok: #35d488;
+    --warning: #f5b83d;
+    --alert: #ff5566;
+    --accent: #4ea8ff;
+    --mono: "SF Mono", "Menlo", "Consolas", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+  header .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  header .brand h1 {
+    font-size: 18px;
+    margin: 0;
+    letter-spacing: 0.02em;
+  }
+  header .brand .profile {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+  header .elapsed {
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--text-dim);
+  }
+  header .elapsed strong {
+    color: var(--text);
+    font-size: 18px;
+  }
+
+  #connectivity {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  #connectivity .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+  #connectivity.online .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  #connectivity.online { color: var(--ok); border-color: rgba(53, 212, 136, 0.4); }
+  #connectivity.offline { color: var(--alert); border-color: rgba(255, 85, 102, 0.5); background: rgba(255, 85, 102, 0.08); }
+  #connectivity.offline .dot { background: var(--alert); box-shadow: 0 0 8px var(--alert); }
+  #connectivity.checking .dot { background: var(--warning); }
+
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 1px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  #timeline-panel {
+    grid-row: 1 / 3;
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #timeline-panel h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin: 0;
+    padding: 14px 16px 8px;
+    flex-shrink: 0;
+  }
+  #timeline {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 12px 16px;
+  }
+  .timeline-item {
+    border-left: 2px solid var(--border);
+    padding: 8px 0 8px 12px;
+    margin-bottom: 2px;
+    position: relative;
+  }
+  .timeline-item::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: 13px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .timeline-item .t { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .timeline-item .label { font-size: 13.5px; font-weight: 600; margin-top: 2px; }
+  .timeline-item .verbatim { font-size: 12px; color: var(--text-dim); margin-top: 2px; font-style: italic; }
+  .timeline-item .src { font-size: 10px; color: var(--text-dim); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .timeline-item.note::before { background: var(--text-dim); }
+  .timeline-item.rosc::before, .timeline-item.terminated::before { background: var(--ok); }
+  .timeline-item.human::before { background: var(--warning); }
+  #timeline-empty { color: var(--text-dim); font-size: 13px; padding: 8px 0; }
+
+  #timers-panel {
+    background: var(--panel);
+    padding: 20px 24px;
+    display: flex;
+    gap: 28px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .timer-card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 26px;
+    min-width: 220px;
+    text-align: center;
+  }
+  .timer-card .name {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+  }
+  .timer-card .value {
+    font-family: var(--mono);
+    font-size: 40px;
+    font-weight: 700;
+    margin: 4px 0;
+    color: var(--text-dim);
+  }
+  .timer-card .message {
+    font-size: 12px;
+    color: var(--text-dim);
+    min-height: 16px;
+  }
+  .timer-card.status-ok .value { color: var(--ok); }
+  .timer-card.status-warning .value { color: var(--warning); }
+  .timer-card.status-alert .value { color: var(--alert); }
+  .timer-card.status-alert { border-color: var(--alert); animation: pulse-alert 1.4s infinite; }
+  @keyframes pulse-alert {
+    0%, 100% { box-shadow: 0 0 0 rgba(255, 85, 102, 0); }
+    50% { box-shadow: 0 0 14px rgba(255, 85, 102, 0.55); }
+  }
+
+  #lower {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 1px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  #transcript-panel, #confirm-panel {
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #transcript-panel h2, #confirm-panel h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin: 0;
+    padding: 12px 16px 8px;
+    flex-shrink: 0;
+  }
+  #transcript {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 16px 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+  }
+  #transcript .empty { color: var(--text-dim); font-family: -apple-system, sans-serif; }
+  #transcript .seg { color: var(--text); }
+  #transcript .seg.replaying { opacity: 0.7; }
+
+  #confirm-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 12px 14px;
+  }
+  .confirm-card {
+    background: var(--panel-2);
+    border: 1px solid var(--warning);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .confirm-card .verbatim { font-size: 12.5px; font-style: italic; color: var(--text); margin-bottom: 6px; }
+  .confirm-card .proposed { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  .confirm-card .actions { display: flex; gap: 8px; }
+  .confirm-card button {
+    flex: 1;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .confirm-card .confirm-btn { background: var(--ok); color: #06231a; }
+  .confirm-card .reject-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
+  #confirm-empty { color: var(--text-dim); font-size: 13px; padding: 8px 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>SwiftCode</h1>
+    <span class="profile" id="profile-badge">profile: -</span>
+  </div>
+  <div class="elapsed">Code time <strong id="elapsed-value">-:--</strong></div>
+  <div id="connectivity" class="checking"><span class="dot"></span><span id="connectivity-label">Checking...</span></div>
+</header>
+
+<main>
+  <section id="timeline-panel">
+    <h2>Event Timeline</h2>
+    <div id="timeline"><div id="timeline-empty">No events logged yet.</div></div>
+  </section>
+
+  <section id="timers-panel">
+    <div class="timer-card" id="epi-card">
+      <div class="name">Epinephrine</div>
+      <div class="value" id="epi-value">--:--</div>
+      <div class="message" id="epi-message">No dose given yet</div>
+    </div>
+    <div class="timer-card" id="cpr-card">
+      <div class="name">CPR Cycle</div>
+      <div class="value" id="cpr-value">--:--</div>
+      <div class="message" id="cpr-message">Compressions not started</div>
+    </div>
+  </section>
+
+  <section id="lower">
+    <div id="transcript-panel">
+      <h2>Live Transcript</h2>
+      <div id="transcript"><div class="empty">Transcript will appear here once audio input starts.</div></div>
+    </div>
+    <div id="confirm-panel">
+      <h2>Confirm Queue</h2>
+      <div id="confirm-list"><div id="confirm-empty">Nothing waiting on confirmation.</div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const state = { log: [], pending: [], timers: null, connectivityConfig: null };
+
+  const el = {
+    profileBadge: document.getElementById("profile-badge"),
+    elapsedValue: document.getElementById("elapsed-value"),
+    connectivity: document.getElementById("connectivity"),
+    connectivityLabel: document.getElementById("connectivity-label"),
+    timeline: document.getElementById("timeline"),
+    timelineEmpty: document.getElementById("timeline-empty"),
+    epiCard: document.getElementById("epi-card"),
+    epiValue: document.getElementById("epi-value"),
+    epiMessage: document.getElementById("epi-message"),
+    cprCard: document.getElementById("cpr-card"),
+    cprValue: document.getElementById("cpr-value"),
+    cprMessage: document.getElementById("cpr-message"),
+    confirmList: document.getElementById("confirm-list"),
+    confirmEmpty: document.getElementById("confirm-empty"),
+  };
+
+  const EVENT_LABELS = {
+    code_started: "Code started",
+    cpr_started: "CPR started",
+    cpr_resumed: "CPR resumed",
+    cpr_paused: "CPR paused",
+    rhythm_check: "Rhythm check",
+    shock_delivered: "Shock delivered",
+    med_administered: "Medication administered",
+    airway_placed: "Airway placed",
+    access_established: "Access established",
+    rosc_achieved: "ROSC achieved",
+    code_terminated: "Code terminated",
+    note: "Note",
+  };
+
+  function fmtMMSS(totalSeconds) {
+    if (totalSeconds == null) return "--:--";
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return m + ":" + String(rem).padStart(2, "0");
+  }
+
+  function fmtClockTime(ts) {
+    return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function eventDetail(e) {
+    switch (e.event_type) {
+      case "med_administered":
+        return [e.drug, e.dose, e.route].filter(Boolean).join(" · ");
+      case "rhythm_check":
+        return e.rhythm_reported ? ("reported: " + e.rhythm_reported) : "";
+      case "shock_delivered":
+        return e.energy_joules != null ? (e.energy_joules + " J") : "";
+      case "airway_placed":
+        return e.airway_type || "";
+      case "access_established":
+        return [e.route, e.site].filter(Boolean).join(" · ");
+      default:
+        return "";
+    }
+  }
+
+  function renderTimeline() {
+    if (state.log.length === 0) {
+      el.timeline.innerHTML = "";
+      el.timeline.appendChild(el.timelineEmpty);
+      return;
+    }
+    const sorted = [...state.log].sort((a, b) => a.timestamp - b.timestamp);
+    el.timeline.innerHTML = sorted
+      .map((e) => {
+        const cls = e.event_type === "note" ? "note"
+          : e.event_type === "rosc_achieved" || e.event_type === "code_terminated" ? "rosc"
+          : e.source === "human-confirmed" ? "human"
+          : "";
+        const detail = eventDetail(e);
+        return (
+          '<div class="timeline-item ' + cls + '">' +
+          '<div class="t">' + fmtClockTime(e.timestamp) + "</div>" +
+          '<div class="label">' + (EVENT_LABELS[e.event_type] || e.event_type) + (detail ? " &middot; " + detail : "") + "</div>" +
+          (e.verbatim ? '<div class="verbatim">“' + e.verbatim + '”</div>' : "") +
+          '<div class="src">' + (e.source || "") + "</div>" +
+          "</div>"
+        );
+      })
+      .join("");
+  }
+
+  function renderConfirmQueue() {
+    if (state.pending.length === 0) {
+      el.confirmList.innerHTML = "";
+      el.confirmList.appendChild(el.confirmEmpty);
+      return;
+    }
+    el.confirmList.innerHTML = state.pending
+      .map((e) => {
+        const detail = eventDetail(e);
+        return (
+          '<div class="confirm-card" data-id="' + e.id + '">' +
+          '<div class="verbatim">“' + (e.verbatim || "") + '”</div>' +
+          '<div class="proposed">' + (EVENT_LABELS[e.event_type] || e.event_type) + (detail ? " &middot; " + detail : "") + "</div>" +
+          '<div class="actions">' +
+          '<button class="confirm-btn" data-action="confirm">Confirm</button>' +
+          '<button class="reject-btn" data-action="reject">Reject</button>' +
+          "</div></div>"
+        );
+      })
+      .join("");
+  }
+
+  el.confirmList.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("button[data-action]");
+    if (!btn) return;
+    const card = btn.closest(".confirm-card");
+    const id = card.getAttribute("data-id");
+    const action = btn.getAttribute("data-action");
+    btn.closest(".actions").querySelectorAll("button").forEach((b) => (b.disabled = true));
+    await fetch("/api/" + action, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+  });
+
+  function applyTimerStatus(card, status) {
+    card.classList.remove("status-ok", "status-warning", "status-alert");
+    if (status && status !== "none") card.classList.add("status-" + status);
+  }
+
+  function renderTimers() {
+    const t = state.timers;
+    if (!t) return;
+    el.elapsedValue.textContent = t.elapsedCodeDisplay || "-:--";
+
+    if (t.epi && t.epi.status !== "none") {
+      el.epiValue.textContent = fmtMMSS(t.epi.secondsSinceLastDose);
+      el.epiMessage.textContent = t.epi.message;
+      applyTimerStatus(el.epiCard, t.epi.status);
+    } else {
+      el.epiValue.textContent = "--:--";
+      el.epiMessage.textContent = "No dose given yet";
+      applyTimerStatus(el.epiCard, null);
+    }
+
+    if (t.cpr && t.cpr.status !== "none") {
+      el.cprValue.textContent = fmtMMSS(t.cpr.secondsSinceCycleStart);
+      el.cprMessage.textContent = t.cpr.message;
+      applyTimerStatus(el.cprCard, t.cpr.status);
+    } else {
+      el.cprValue.textContent = "--:--";
+      el.cprMessage.textContent = "Compressions not started";
+      applyTimerStatus(el.cprCard, null);
+    }
+  }
+
+  function connectWebSocket() {
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(proto + "//" + location.host + "/ws");
+
+    ws.addEventListener("message", (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "snapshot") {
+        state.log = msg.log;
+        state.pending = msg.pending;
+        state.timers = msg.timers;
+        el.profileBadge.textContent = "profile: " + msg.profile;
+        renderTimeline();
+        renderConfirmQueue();
+        renderTimers();
+      } else if (msg.type === "event") {
+        if (msg.kind === "logged") {
+          state.log.push(msg.payload);
+        } else if (msg.kind === "pending") {
+          state.pending.push(msg.payload);
+        } else if (msg.kind === "pending-resolved") {
+          state.pending = state.pending.filter((e) => e.id !== msg.payload.id);
+          if (msg.payload.action === "confirmed" && msg.payload.event) {
+            state.log.push(msg.payload.event);
+          }
+        }
+        renderTimeline();
+        renderConfirmQueue();
+      } else if (msg.type === "timers") {
+        state.timers = msg.timers;
+        renderTimers();
+      }
+    });
+
+    ws.addEventListener("close", () => {
+      setTimeout(connectWebSocket, 1500);
+    });
+  }
+
+  function setConnectivity(status) {
+    el.connectivity.className = status;
+    el.connectivityLabel.textContent =
+      status === "online" ? "Cloud reachable" : status === "offline" ? "EDGE MODE: local pipeline active" : "Checking...";
+  }
+
+  async function pollConnectivity(checkUrl) {
+    try {
+      await fetch(checkUrl, { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(4000) });
+      setConnectivity("online");
+    } catch (err) {
+      setConnectivity("offline");
+    }
+  }
+
+  async function initConnectivityPolling() {
+    const res = await fetch("/api/config");
+    const cfg = await res.json();
+    state.connectivityConfig = cfg.connectivity;
+    pollConnectivity(cfg.connectivity.check_url);
+    setInterval(() => pollConnectivity(cfg.connectivity.check_url), cfg.connectivity.poll_interval_ms || 5000);
+  }
+
+  connectWebSocket();
+  initConnectivityPolling();
+})();
+</script>
+</body>
+</html>

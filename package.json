@@ -1,0 +1,12 @@
+{
+  "name": "swiftcode",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/server.js",
+    "start": "bun src/server.js",
+    "preflight": "bun src/preflight.js",
+    "test": "bun test"
+  }
+}

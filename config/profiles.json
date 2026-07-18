@@ -1,0 +1,51 @@
+{
+  "active_profile": "localhost",
+  "profiles": {
+    "cloud": {
+      "stt_base_url": "https://menlo-hq-1.swiftinference.ai",
+      "llm_base_url": "https://menlo-hq-1.swiftinference.ai",
+      "description": "Production SwiftInference cluster, reached over WireGuard tunnel"
+    },
+    "localhost": {
+      "stt_base_url": "http://localhost:8000",
+      "llm_base_url": "http://localhost:8000",
+      "description": "Local SwiftInference instance for dev / offline bench testing"
+    },
+    "lan": {
+      "stt_base_url": "https://192.168.10.10",
+      "llm_base_url": "https://192.168.10.10",
+      "sni_host": "menlo-hq-1.swiftinference.ai",
+      "description": "Edge node behind the travel router; connects by IP, SNI'd as the cloud hostname"
+    }
+  },
+  "models": {
+    "stt": "whisper-large-v3",
+    "llm": "llama-3.1-8b"
+  },
+  "claude": {
+    "model": "claude-sonnet-5",
+    "defer_when_offline": true
+  },
+  "timers": {
+    "epi_interval_seconds": 180,
+    "epi_warning_lead_seconds": 30,
+    "cpr_cycle_seconds": 120
+  },
+  "audio": {
+    "chunk_ms": 500,
+    "window_seconds": 2.5,
+    "overlap_seconds": 0.5,
+    "sample_rate": 16000
+  },
+  "extraction": {
+    "timeout_ms": 2000,
+    "confidence_threshold": 0.7
+  },
+  "connectivity": {
+    "check_url": "https://menlo-hq-1.swiftinference.ai/health",
+    "poll_interval_ms": 5000
+  },
+  "server": {
+    "port": 3000
+  }
+}
