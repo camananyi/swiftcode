@@ -11,6 +11,7 @@ import { matchRules } from "./pipeline/rules.js";
 import { extractEvent } from "./pipeline/extract.js";
 import { runPostEventSummary, SummaryQueue } from "./pipeline/summary.js";
 import { buildStructuredExport, buildMarkdownExport } from "./pipeline/export.js";
+import { replayWavFile } from "./pipeline/replay.js";
 
 const config = getConfig();
 const store = new EventStore({ confidence_threshold: config.extraction.confidence_threshold });
@@ -36,11 +37,13 @@ async function handleTranscriptSegment(segment) {
   const ruleMatch = matchRules(segment.text, segment.timestamp);
   if (ruleMatch) {
     store.ingest(ruleMatch);
+    broadcast({ type: "latency", sttMs: segment.latencyMs, eventMs: Date.now() - segment.timestamp, stage: "rules", profile: config.profileName });
     return;
   }
 
   const extracted = await extractEvent(segment.text, segment.timestamp, config);
   if (extracted) store.ingest(extracted);
+  broadcast({ type: "latency", sttMs: segment.latencyMs, eventMs: Date.now() - segment.timestamp, stage: "llm", profile: config.profileName });
 }
 
 const chunker = new AudioChunker({ config, onSegment: handleTranscriptSegment });
@@ -110,6 +113,36 @@ if (process.env.SWIFTCODE_SEED_DEMO === "1") {
 }
 
 const uiIndexPath = new URL("./ui/index.html", import.meta.url);
+const AUDIO_DIR = new URL("../audio/", import.meta.url);
+const REPLAY_FILENAME_PATTERN = /^[\w.-]+\.wav$/i;
+
+// Feeds a canned WAV through chunker.pushChunk() at 1x speed — the identical code path
+// live mic uses. Triggered by loading the page with ?replay=filename.wav.
+let replayInProgress = false;
+async function startReplay(filename) {
+  if (replayInProgress) return;
+  if (!REPLAY_FILENAME_PATTERN.test(filename)) {
+    broadcast({ type: "replay", status: "error", error: "Invalid replay filename" });
+    return;
+  }
+
+  const filePath = new URL(filename, AUDIO_DIR).pathname;
+  if (!(await Bun.file(filePath).exists())) {
+    broadcast({ type: "replay", status: "error", error: `Audio file not found: ${filename}` });
+    return;
+  }
+
+  replayInProgress = true;
+  broadcast({ type: "replay", status: "started", filename });
+  try {
+    await replayWavFile(filePath, chunker, { chunkMs: config.audio.chunk_ms, targetSampleRate: config.audio.sample_rate });
+    broadcast({ type: "replay", status: "finished", filename });
+  } catch (err) {
+    broadcast({ type: "replay", status: "error", error: err.message });
+  } finally {
+    replayInProgress = false;
+  }
+}
 
 const server = Bun.serve({
   port: config.server.port,
@@ -122,6 +155,8 @@ const server = Bun.serve({
     }
 
     if (url.pathname === "/" || url.pathname === "/index.html") {
+      const replayFile = url.searchParams.get("replay");
+      if (replayFile) startReplay(replayFile); // fire-and-forget; page loads immediately
       return new Response(Bun.file(uiIndexPath), { headers: { "Content-Type": "text/html" } });
     }
 
@@ -178,4 +213,4 @@ const server = Bun.serve({
 
 console.log(`SwiftCode listening on http://localhost:${server.port} (profile: ${config.profileName})`);
 
-export { store, server, config, broadcast, chunker, handleTranscriptSegment, summaryQueue };
+export { store, server, config, broadcast, chunker, handleTranscriptSegment, summaryQueue, startReplay };

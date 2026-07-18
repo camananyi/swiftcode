@@ -90,6 +90,31 @@
   #connectivity.offline .dot { background: var(--alert); box-shadow: 0 0 8px var(--alert); }
   #connectivity.checking .dot { background: var(--warning); }
 
+  #latency-panel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  #latency-panel.hidden { display: none; }
+  #latency-panel .latency-item strong { color: var(--accent); font-weight: 700; }
+  #latency-panel .latency-n { font-size: 10.5px; opacity: 0.7; }
+
+  #replay-banner {
+    display: none;
+    flex-shrink: 0;
+    background: rgba(78, 168, 255, 0.1);
+    border-top: 1px solid var(--accent);
+    border-bottom: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 20px;
+  }
+  #replay-banner.visible { display: block; }
+
   main {
     flex: 1;
     display: grid;
@@ -361,9 +386,15 @@
     <span class="profile" id="profile-badge">profile: -</span>
   </div>
   <div class="elapsed">Code time <strong id="elapsed-value">-:--</strong></div>
+  <div id="latency-panel" class="hidden">
+    <span class="latency-item">STT <strong id="latency-stt">--</strong>ms</span>
+    <span class="latency-item">Event <strong id="latency-event">--</strong>ms</span>
+    <span class="latency-n" id="latency-n"></span>
+  </div>
   <div id="connectivity" class="checking"><span class="dot"></span><span id="connectivity-label">Checking...</span></div>
 </header>
 
+<div id="replay-banner"></div>
 <main>
   <section id="timeline-panel">
     <h2>Event Timeline</h2>
@@ -582,6 +613,43 @@
     textEl.textContent = msg.text || "";
   }
 
+  const MAX_LATENCY_SAMPLES = 20;
+  const latencySamples = { stt: [], event: [] };
+  const latencyPanel = document.getElementById("latency-panel");
+
+  function pushSample(arr, value) {
+    if (typeof value !== "number") return;
+    arr.push(value);
+    if (arr.length > MAX_LATENCY_SAMPLES) arr.shift();
+  }
+
+  function average(arr) {
+    return arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
+  }
+
+  function recordLatencySample(msg) {
+    pushSample(latencySamples.stt, msg.sttMs);
+    pushSample(latencySamples.event, msg.eventMs);
+    latencyPanel.classList.remove("hidden");
+    document.getElementById("latency-stt").textContent = average(latencySamples.stt) ?? "--";
+    document.getElementById("latency-event").textContent = average(latencySamples.event) ?? "--";
+    document.getElementById("latency-n").textContent = "avg of " + latencySamples.stt.length + " (" + msg.profile + ")";
+  }
+
+  const replayBanner = document.getElementById("replay-banner");
+  function renderReplayStatus(msg) {
+    if (msg.status === "started") {
+      replayBanner.textContent = "Replaying " + msg.filename + " through the real pipeline at 1x speed.";
+      replayBanner.classList.add("visible");
+    } else if (msg.status === "finished") {
+      replayBanner.textContent = "Replay finished: " + msg.filename;
+      setTimeout(() => replayBanner.classList.remove("visible"), 4000);
+    } else if (msg.status === "error") {
+      replayBanner.textContent = "Replay error: " + msg.error;
+      replayBanner.classList.add("visible");
+    }
+  }
+
   function applyTimerStatus(card, status) {
     card.classList.remove("status-ok", "status-warning", "status-alert");
     if (status && status !== "none") card.classList.add("status-" + status);
@@ -653,6 +721,10 @@
         renderTranscriptSegment(msg.segment);
       } else if (msg.type === "summary") {
         renderSummaryJob(msg);
+      } else if (msg.type === "latency") {
+        recordLatencySample(msg);
+      } else if (msg.type === "replay") {
+        renderReplayStatus(msg);
       }
     });
 
