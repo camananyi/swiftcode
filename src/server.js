@@ -6,11 +6,42 @@ import { getConfig } from "./config.js";
 import { EventStore } from "./pipeline/events.js";
 import { reduceEvents, computeDisplay } from "./pipeline/timers.js";
 import { seedDemoEvents } from "./pipeline/demo-seed.js";
+import { AudioChunker } from "./pipeline/stt.js";
+import { matchRules } from "./pipeline/rules.js";
+import { extractEvent } from "./pipeline/extract.js";
 
 const config = getConfig();
 const store = new EventStore({ confidence_threshold: config.extraction.confidence_threshold });
 
 const sockets = new Set();
+
+// A raw binary WS frame arrives as a Buffer/Uint8Array whose underlying ArrayBuffer may
+// not be 2-byte aligned at byteOffset — read through a DataView instead of casting directly.
+function bufferToInt16Array(raw) {
+  const view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+  const samples = new Int16Array(raw.byteLength / 2);
+  for (let i = 0; i < samples.length; i++) samples[i] = view.getInt16(i * 2, true);
+  return samples;
+}
+
+// Segment handling is shared by the live mic feed and file-replay mode (task 11) so both
+// run the identical code path: broadcast the transcript, then let rules.js try first,
+// falling back to the LLM only for what rules.js didn't resolve. Not awaited by the
+// chunker — extraction latency must never block the next audio window from processing.
+async function handleTranscriptSegment(segment) {
+  broadcast({ type: "transcript", segment });
+
+  const ruleMatch = matchRules(segment.text, segment.timestamp);
+  if (ruleMatch) {
+    store.ingest(ruleMatch);
+    return;
+  }
+
+  const extracted = await extractEvent(segment.text, segment.timestamp, config);
+  if (extracted) store.ingest(extracted);
+}
+
+const chunker = new AudioChunker({ config, onSegment: handleTranscriptSegment });
 
 function currentTimerState() {
   return reduceEvents(store.getLog());
@@ -89,12 +120,13 @@ const server = Bun.serve({
     close(ws) {
       sockets.delete(ws);
     },
-    message(_ws, _raw) {
-      // Reserved: client->server messages if we move confirm/reject off REST later.
+    message(_ws, raw) {
+      if (typeof raw === "string") return; // reserved for future JSON control messages
+      chunker.pushChunk(bufferToInt16Array(raw));
     },
   },
 });
 
 console.log(`SwiftCode listening on http://localhost:${server.port} (profile: ${config.profileName})`);
 
-export { store, server, config, broadcast };
+export { store, server, config, broadcast, chunker, handleTranscriptSegment };
