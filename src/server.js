@@ -113,6 +113,7 @@ if (process.env.SWIFTCODE_SEED_DEMO === "1") {
 }
 
 const uiIndexPath = new URL("./ui/index.html", import.meta.url);
+const uiAgentPath = new URL("./ui/agent.html", import.meta.url);
 const AUDIO_DIR = new URL("../audio/", import.meta.url);
 const REPLAY_FILENAME_PATTERN = /^[\w.-]+\.wav$/i;
 
@@ -158,6 +159,14 @@ const server = Bun.serve({
       const replayFile = url.searchParams.get("replay");
       if (replayFile) startReplay(replayFile); // fire-and-forget; page loads immediately
       return new Response(Bun.file(uiIndexPath), { headers: { "Content-Type": "text/html" } });
+    }
+
+    // Agent-first view: same pipeline and WS protocol, rendered as the agent's
+    // chronological perceive/reason/act stream rather than a mission-control layout.
+    if (url.pathname === "/agent") {
+      const replayFile = url.searchParams.get("replay");
+      if (replayFile) startReplay(replayFile);
+      return new Response(Bun.file(uiAgentPath), { headers: { "Content-Type": "text/html" } });
     }
 
     if (url.pathname === "/api/config" && req.method === "GET") {

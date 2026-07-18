@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SwiftCode Agent</title>
+<style>
+  :root {
+    --bg: #0a0c10;
+    --panel: #12161d;
+    --panel-2: #171c25;
+    --border: #262d39;
+    --text: #e6ebf2;
+    --text-dim: #8b96a8;
+    --ok: #35d488;
+    --warning: #f5b83d;
+    --alert: #ff5566;
+    --accent: #4ea8ff;
+    --purple: #9b82ff;
+    --mono: "SF Mono", "Menlo", "Consolas", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background:
+      radial-gradient(1100px 520px at 72% -12%, rgba(78, 168, 255, 0.09), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  ::-webkit-scrollbar { width: 9px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2b3442; border-radius: 5px; }
+  button { transition: background 0.15s, border-color 0.15s, transform 0.1s; }
+  button:active { transform: scale(0.97); }
+
+  .wrap { max-width: 860px; margin: 0 auto; padding: 18px 20px 60px; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+  header h1 { font-size: 20px; margin: 0; }
+  header .tagline { font-size: 12.5px; color: var(--text-dim); margin: 4px 0 0; }
+  .head-right { display: flex; align-items: center; gap: 10px; }
+  .clock { font-family: var(--mono); font-size: 15px; color: var(--text-dim); }
+  .clock strong { color: var(--text); font-size: 17px; }
+  #connectivity {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 600; padding: 5px 11px;
+    border-radius: 999px; border: 1px solid var(--border);
+  }
+  #connectivity .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
+  #connectivity.online { color: var(--ok); border-color: rgba(53, 212, 136, 0.4); }
+  #connectivity.online .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  #connectivity.offline { color: var(--alert); border-color: rgba(255, 85, 102, 0.5); background: rgba(255, 85, 102, 0.08); }
+  #connectivity.offline .dot { background: var(--alert); }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 10px; }
+  .controls button {
+    font-size: 12.5px; font-weight: 600; padding: 7px 14px;
+    border-radius: 7px; border: 1px solid var(--border);
+    background: var(--panel-2); color: var(--text); cursor: pointer;
+  }
+  .controls button:hover { border-color: var(--accent); }
+  #mic-toggle.active { background: var(--alert); border-color: var(--alert); color: #2a0508; box-shadow: 0 0 12px rgba(255, 85, 102, 0.45); }
+  #start-code-btn { border-color: var(--alert); color: var(--alert); background: rgba(255, 85, 102, 0.1); }
+  #start-code-btn.hidden { display: none; }
+
+  #timer-line {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text-dim);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 13px;
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+  #timer-line .warn { color: var(--warning); font-weight: 700; }
+  #timer-line .crit { color: var(--alert); font-weight: 700; }
+  #timer-line .fine { color: var(--ok); }
+
+  #stream { display: flex; flex-direction: column; gap: 8px; }
+  .entry {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    animation: entry-in 0.25s ease-out;
+  }
+  @keyframes entry-in {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: none; }
+  }
+  .entry .meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .entry .chip {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 4px;
+  }
+  .entry .when { font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); }
+  .entry .body { font-size: 13.5px; line-height: 1.5; }
+  .entry .quote { font-style: italic; color: var(--text-dim); font-size: 12.5px; margin-top: 3px; }
+  .entry .effect { font-size: 12px; color: var(--accent); margin-top: 4px; }
+
+  .entry.heard { background: transparent; border-color: transparent; padding: 3px 14px; }
+  .entry.heard .body { font-family: var(--mono); font-size: 12.5px; color: var(--text-dim); }
+  .chip.heard-chip { background: rgba(139, 150, 168, 0.15); color: var(--text-dim); }
+  .chip.logged-chip { background: rgba(53, 212, 136, 0.13); color: var(--ok); }
+  .chip.llm-chip { background: rgba(155, 130, 255, 0.15); color: var(--purple); }
+  .chip.ask-chip { background: rgba(155, 130, 255, 0.15); color: var(--purple); }
+  .chip.advisory-chip { background: rgba(245, 184, 61, 0.15); color: var(--warning); }
+  .chip.alert-chip { background: rgba(255, 85, 102, 0.15); color: var(--alert); }
+  .chip.record-chip { background: rgba(78, 168, 255, 0.13); color: var(--accent); }
+  .chip.note-chip { background: rgba(139, 150, 168, 0.12); color: var(--text-dim); }
+
+  .entry.advisory { border-color: rgba(245, 184, 61, 0.5); }
+  .entry.advisory-alert { border-color: rgba(255, 85, 102, 0.55); }
+  .entry.ask { border-color: rgba(155, 130, 255, 0.55); }
+  .entry.record { border-color: rgba(78, 168, 255, 0.4); }
+
+  .entry .actions { display: flex; gap: 10px; margin-top: 9px; }
+  .entry .actions button {
+    flex: 1; border-radius: 6px; padding: 8px 0;
+    font-size: 12.5px; font-weight: 700; cursor: pointer;
+  }
+  .entry .confirm-btn { background: rgba(53, 212, 136, 0.16); border: 1px solid var(--ok); color: var(--ok); }
+  .entry .confirm-btn:hover { background: rgba(53, 212, 136, 0.3); }
+  .entry .reject-btn { background: rgba(255, 85, 102, 0.08); border: 1px solid rgba(255, 85, 102, 0.5); color: var(--alert); }
+  .entry .reject-btn:hover { background: rgba(255, 85, 102, 0.18); }
+  .entry .resolved { font-size: 12px; margin-top: 8px; color: var(--text-dim); }
+
+  .entry details { margin-top: 6px; }
+  .entry summary { cursor: pointer; font-size: 12.5px; color: var(--accent); }
+  .entry .record-text { white-space: pre-wrap; font-size: 13px; line-height: 1.55; margin-top: 8px; color: var(--text); }
+  .entry .dl-row { display: flex; gap: 8px; margin-top: 9px; flex-wrap: wrap; }
+  .entry .dl-row button, .entry .dl-row a {
+    font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 6px;
+    border: 1px solid var(--accent); background: transparent; color: var(--accent);
+    cursor: pointer; text-decoration: none;
+  }
+
+  #qa-box { margin-top: 14px; display: none; }
+  #qa-box.visible { display: block; }
+  #qa-box .row { display: flex; gap: 8px; }
+  #qa-box input {
+    flex: 1; background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 7px; padding: 8px 11px; font-size: 13px;
+  }
+  #qa-box input:focus { outline: none; border-color: var(--accent); }
+  #qa-box button {
+    font-size: 12.5px; font-weight: 600; padding: 7px 16px; border-radius: 7px;
+    border: 1px solid var(--accent); background: rgba(78, 168, 255, 0.1); color: var(--accent); cursor: pointer;
+  }
+  #stream-empty { color: var(--text-dim); font-size: 13.5px; padding: 20px 4px; }
+  .footnote { font-size: 11px; color: var(--text-dim); margin-top: 26px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>SwiftCode Agent</h1>
+      <p class="tagline">Hands-free documentation and protocol-timing agent for code blue events. It listens, extracts, prompts, and writes the record. Humans stay in the loop.</p>
+    </div>
+    <div class="head-right">
+      <span class="clock">Code <strong id="elapsed">-:--</strong></span>
+      <div id="connectivity" class="checking"><span class="dot"></span><span id="connectivity-label">Checking...</span></div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <button id="mic-toggle">Start Listening</button>
+    <button id="start-code-btn">Start Code</button>
+    <button id="replay-clean">Replay clean take</button>
+    <button id="replay-messy">Replay messy take</button>
+    <button id="reset-btn">Reset session</button>
+  </div>
+
+  <div id="timer-line">Timers idle. The agent starts them from confirmed events only.</div>
+
+  <div id="stream"><div id="stream-empty">Waiting for audio. Start listening, or replay a canned take, and the agent's actions will appear here as they happen.</div></div>
+
+  <div id="qa-box">
+    <div class="row">
+      <input id="qa-input" placeholder="Ask the agent a factual question about the completed code (answered from the event log only)" />
+      <button id="qa-ask">Ask</button>
+    </div>
+  </div>
+
+  <p class="footnote">
+    SwiftCode is a documentation and protocol-timing support tool with humans in the loop. It never interprets
+    ECG rhythms (rhythm words are recorded verbatim as spoken) and never directs therapy. Real-time transcription
+    and extraction run on the local or edge SwiftInference node; Claude writes the post-event record and debrief
+    only after ROSC or termination. It supports data locality requirements relevant to healthcare.
+  </p>
+</div>
+
+<script>
+(function () {
+  const state = { log: [], timers: null, lastEpiStatus: "none", lastCprStatus: "none", summaryShown: {} };
+
+  const streamEl = document.getElementById("stream");
+  const streamEmpty = document.getElementById("stream-empty");
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+  function fmtMMSS(totalSeconds) {
+    if (totalSeconds == null) return "-:--";
+    const s = Math.max(0, Math.floor(totalSeconds));
+    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  }
+
+  function fmtClock(ts) {
+    return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function eventTitle(e) {
+    switch (e.event_type) {
+      case "med_administered":
+        return [cap(e.drug), e.dose, e.route ? e.route + " push" : null].filter(Boolean).join(" ");
+      case "rhythm_check":
+        return e.rhythm_reported ? 'Rhythm check, reported "' + e.rhythm_reported + '"' : "Rhythm check";
+      case "shock_delivered":
+        return "Shock delivered" + (e.energy_joules != null ? ", " + e.energy_joules + " J" : "");
+      case "airway_placed":
+        return "Airway placed" + (e.airway_type ? ", " + e.airway_type : "");
+      case "access_established": {
+        const d = [e.route, e.site].filter(Boolean).join(", ");
+        return "Access established" + (d ? ", " + d : "");
+      }
+      case "code_started": return e.source === "manual" ? "Code started by manual activation" : "Code started";
+      case "cpr_started": return "CPR started";
+      case "cpr_resumed": return "CPR resumed";
+      case "cpr_paused": return "CPR paused";
+      case "rosc_achieved": return "ROSC reported";
+      case "code_terminated": return "Code terminated";
+      case "note": return "Kept as a note (not classifiable as a clinical event)";
+      default: return e.event_type;
+    }
+  }
+
+  // What the agent did as a consequence of this event.
+  function eventEffect(e) {
+    switch (e.event_type) {
+      case "code_started": return "Started the elapsed-code clock.";
+      case "cpr_started":
+      case "cpr_resumed": return "Started a 2:00 CPR cycle timer.";
+      case "med_administered":
+        return e.drug === "epinephrine" ? "Restarted the 3:00 epinephrine interval timer." : null;
+      case "rosc_achieved":
+      case "code_terminated": return "Stopped all timers. Generating the code record and debrief.";
+      default: return null;
+    }
+  }
+
+  function addEntry(html, cls) {
+    if (streamEmpty.parentNode) streamEmpty.remove();
+    const div = document.createElement("div");
+    div.className = "entry " + (cls || "");
+    div.innerHTML = html;
+    streamEl.appendChild(div);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    return div;
+  }
+
+  function metaHtml(chipCls, chipText, ts) {
+    return '<div class="meta"><span class="chip ' + chipCls + '">' + chipText + "</span>" +
+      '<span class="when">' + fmtClock(ts || Date.now()) + "</span></div>";
+  }
+
+  function addHeard(segment) {
+    addEntry(
+      metaHtml("heard-chip", "Heard", segment.timestamp) +
+      '<div class="body">' + esc(segment.text) + "</div>",
+      "heard"
+    );
+  }
+
+  function addLogged(e) {
+    const srcLabel = e.source === "rules" ? "Extracted instantly by rules" :
+      e.source === "llm" ? "Normalized by the on-node LLM" :
+      e.source === "human-confirmed" ? "Confirmed by the team" :
+      e.source === "manual" ? "Manual activation" : e.source || "";
+    const effect = eventEffect(e);
+    addEntry(
+      metaHtml(e.source === "llm" || e.event_type === "note" ? "llm-chip" : "logged-chip", "Logged", e.timestamp) +
+      '<div class="body">' + esc(eventTitle(e)) + (srcLabel ? ' <span style="color:var(--text-dim)">(' + esc(srcLabel) + ")</span>" : "") + "</div>" +
+      (e.verbatim ? '<div class="quote">"' + esc(e.verbatim) + '"</div>' : "") +
+      (effect ? '<div class="effect">' + esc(effect) + "</div>" : ""),
+      e.event_type === "note" ? "" : ""
+    );
+    updateStartCode();
+  }
+
+  const pendingEntries = {};
+
+  function addPending(e) {
+    const div = addEntry(
+      metaHtml("ask-chip", "Needs confirmation", e.timestamp) +
+      '<div class="body">I heard something I am not sure about. I think it is: <strong>' + esc(eventTitle(e)) + "</strong></div>" +
+      (e.verbatim ? '<div class="quote">"' + esc(e.verbatim) + '"</div>' : "") +
+      '<div class="actions">' +
+      '<button class="confirm-btn" data-id="' + e.id + '" data-action="confirm">Confirm</button>' +
+      '<button class="reject-btn" data-id="' + e.id + '" data-action="reject">Reject</button>' +
+      "</div>",
+      "ask"
+    );
+    pendingEntries[e.id] = div;
+  }
+
+  function resolvePending(id, action) {
+    const div = pendingEntries[id];
+    if (!div) return;
+    const actions = div.querySelector(".actions");
+    if (actions) actions.remove();
+    const note = document.createElement("div");
+    note.className = "resolved";
+    note.textContent = action === "confirmed"
+      ? "Confirmed by the team. Logged with source: human-confirmed."
+      : "Rejected by the team. Not logged.";
+    div.appendChild(note);
+    delete pendingEntries[id];
+  }
+
+  streamEl.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("button[data-action]");
+    if (!btn) return;
+    btn.disabled = true;
+    await fetch("/api/" + btn.getAttribute("data-action"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: btn.getAttribute("data-id") }),
+    });
+  });
+
+  function addAdvisory(message, level) {
+    addEntry(
+      metaHtml(level === "alert" ? "alert-chip" : "advisory-chip", "Advisory", Date.now()) +
+      '<div class="body">' + esc(message) + "</div>",
+      level === "alert" ? "advisory-alert" : "advisory"
+    );
+  }
+
+  const SUMMARY_TITLES = { code_record: "Code record", debrief: "Plus/delta debrief" };
+
+  function addSummary(msg) {
+    const key = msg.name + ":" + msg.status;
+    if (state.summaryShown[key]) {
+      const existing = state.summaryShown[key];
+      if (msg.text) {
+        const t = existing.querySelector(".record-text");
+        if (t) t.textContent = msg.text;
+      }
+      return;
+    }
+    let body;
+    if (msg.status === "completed") {
+      body =
+        '<div class="body">' + esc(SUMMARY_TITLES[msg.name] || msg.name) + " is ready.</div>" +
+        "<details><summary>Read it</summary>" +
+        '<div class="record-text">' + esc(msg.text || "") + "</div></details>" +
+        '<div class="dl-row">' +
+        '<a href="/api/export.md" download>Download record (markdown)</a>' +
+        '<a href="/api/export.json" download>Download structured JSON</a>' +
+        "</div>";
+      document.getElementById("qa-box").classList.add("visible");
+    } else if (msg.status === "queued") {
+      body = '<div class="body">' + esc(SUMMARY_TITLES[msg.name] || msg.name) +
+        " queued. Connectivity is down; it will generate when the connection returns.</div>";
+    } else {
+      body = '<div class="body">' + esc(SUMMARY_TITLES[msg.name] || msg.name) + " failed: " + esc(msg.error || "unknown error") + "</div>";
+    }
+    state.summaryShown[key] = addEntry(metaHtml("record-chip", "Record", Date.now()) + body, "record");
+  }
+
+  function renderTimerLine() {
+    const t = state.timers;
+    const lineEl = document.getElementById("timer-line");
+    document.getElementById("elapsed").textContent = t && t.elapsedCodeDisplay ? t.elapsedCodeDisplay : "-:--";
+    if (!t || (!t.epi.active && !t.cpr.active && t.epi.status === "none" && t.cpr.status === "none")) {
+      if (t && t.stopped) {
+        lineEl.innerHTML = "Timers stopped at ROSC or termination. Elapsed code time frozen at " + esc(t.elapsedCodeDisplay || "-:--") + ".";
+        return;
+      }
+      lineEl.textContent = "Timers idle. The agent starts them from confirmed events only.";
+      return;
+    }
+    const parts = [];
+    if (t.epi.status !== "none") {
+      const cls = t.epi.status === "alert" ? "crit" : t.epi.status === "warning" ? "warn" : "fine";
+      parts.push('Epi <span class="' + cls + '">' + fmtMMSS(t.epi.secondsSinceLastDose) + "</span> since last dose");
+    }
+    if (t.cpr.status !== "none") {
+      const cls = t.cpr.status === "alert" ? "crit" : "fine";
+      parts.push('CPR cycle <span class="' + cls + '">' + fmtMMSS(t.cpr.secondsSinceCycleStart) + "</span>");
+    }
+    lineEl.innerHTML = parts.join(" &nbsp;&middot;&nbsp; ");
+
+    // Advisory entries fire once per status transition, straight from timer state.
+    if (t.epi.status !== state.lastEpiStatus) {
+      if (t.epi.status === "warning") addAdvisory("Epinephrine interval approaching per ACLS. " + (t.epi.message || ""), "warning");
+      if (t.epi.status === "alert" && !t.stopped) addAdvisory(t.epi.message || "Epinephrine interval reached per ACLS.", "alert");
+      state.lastEpiStatus = t.epi.status;
+    }
+    if (t.cpr.status !== state.lastCprStatus) {
+      if (t.cpr.status === "alert" && !t.stopped) addAdvisory(t.cpr.message || "2-minute cycle complete: rhythm check per ACLS.", "alert");
+      state.lastCprStatus = t.cpr.status;
+    }
+  }
+
+  function updateStartCode() {
+    document.getElementById("start-code-btn").classList.toggle(
+      "hidden",
+      state.log.some((e) => e.event_type === "code_started")
+    );
+  }
+
+  let activeSocket = null;
+
+  function connectWebSocket() {
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(proto + "//" + location.host + "/ws");
+    activeSocket = ws;
+
+    ws.addEventListener("message", (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "snapshot") {
+        state.log = msg.log;
+        state.timers = msg.timers;
+        // Rebuild the stream from history so a late-joining viewer sees the story so far.
+        streamEl.innerHTML = "";
+        streamEl.appendChild(streamEmpty);
+        const sorted = [...msg.log].sort((a, b) => a.timestamp - b.timestamp);
+        for (const e of sorted) addLogged(e);
+        for (const p of msg.pending) addPending(p);
+        for (const [name, result] of Object.entries(msg.summary || {})) addSummary({ name, ...result });
+        renderTimerLine();
+        updateStartCode();
+      } else if (msg.type === "transcript") {
+        addHeard(msg.segment);
+      } else if (msg.type === "event") {
+        if (msg.kind === "logged") {
+          state.log.push(msg.payload);
+          addLogged(msg.payload);
+        } else if (msg.kind === "pending") {
+          addPending(msg.payload);
+        } else if (msg.kind === "pending-resolved") {
+          resolvePending(msg.payload.id, msg.payload.action);
+          if (msg.payload.action === "confirmed" && msg.payload.event) state.log.push(msg.payload.event);
+        }
+      } else if (msg.type === "timers") {
+        state.timers = msg.timers;
+        renderTimerLine();
+      } else if (msg.type === "summary") {
+        addSummary(msg);
+      } else if (msg.type === "replay") {
+        if (msg.status === "started") addAdvisory("Replaying " + msg.filename + " through the live pipeline at real-time speed.", "warning");
+        if (msg.status === "finished") addAdvisory("Replay finished: " + msg.filename, "warning");
+        if (msg.status === "error") addAdvisory("Replay error: " + msg.error, "alert");
+      } else if (msg.type === "reset") {
+        state.log = [];
+        state.summaryShown = {};
+        state.lastEpiStatus = "none";
+        state.lastCprStatus = "none";
+        streamEl.innerHTML = "";
+        streamEl.appendChild(streamEmpty);
+        document.getElementById("qa-box").classList.remove("visible");
+      }
+    });
+
+    ws.addEventListener("close", () => setTimeout(connectWebSocket, 1500));
+  }
+
+  function setConnectivity(status) {
+    const c = document.getElementById("connectivity");
+    c.className = status;
+    document.getElementById("connectivity-label").textContent =
+      status === "online" ? "Cloud reachable" : status === "offline" ? "EDGE MODE: local pipeline active" : "Checking...";
+  }
+
+  async function initConnectivity() {
+    const res = await fetch("/api/config");
+    const cfg = await res.json();
+    const poll = async () => {
+      try {
+        await fetch(cfg.connectivity.check_url, { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(4000) });
+        setConnectivity("online");
+      } catch { setConnectivity("offline"); }
+    };
+    poll();
+    setInterval(poll, cfg.connectivity.poll_interval_ms || 5000);
+  }
+
+  // Mic capture: identical transport to the mission-control view, 16kHz PCM16 over WS.
+  const TARGET_SAMPLE_RATE = 16000;
+  let micState = null;
+
+  function downsample(float32, inputRate) {
+    if (inputRate === TARGET_SAMPLE_RATE) {
+      const out = new Int16Array(float32.length);
+      for (let i = 0; i < float32.length; i++) out[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));
+      return out;
+    }
+    const ratio = inputRate / TARGET_SAMPLE_RATE;
+    const outLength = Math.floor(float32.length / ratio);
+    const out = new Int16Array(outLength);
+    for (let i = 0; i < outLength; i++) {
+      const src = i * ratio;
+      const i0 = Math.floor(src);
+      const i1 = Math.min(i0 + 1, float32.length - 1);
+      const sample = float32[i0] * (1 - (src - i0)) + float32[i1] * (src - i0);
+      out[i] = Math.max(-32768, Math.min(32767, Math.round(sample * 32767)));
+    }
+    return out;
+  }
+
+  async function startMic() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = ctx.createMediaStreamSource(stream);
+    const processor = ctx.createScriptProcessor(4096, 1, 1);
+    processor.onaudioprocess = (ev) => {
+      if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) return;
+      activeSocket.send(downsample(ev.inputBuffer.getChannelData(0), ctx.sampleRate).buffer);
+    };
+    source.connect(processor);
+    processor.connect(ctx.destination);
+    micState = { ctx, source, processor, stream };
+  }
+
+  function stopMic() {
+    if (!micState) return;
+    micState.processor.disconnect();
+    micState.source.disconnect();
+    micState.stream.getTracks().forEach((t) => t.stop());
+    micState.ctx.close();
+    micState = null;
+  }
+
+  const micToggle = document.getElementById("mic-toggle");
+  micToggle.addEventListener("click", async () => {
+    if (micState) {
+      stopMic();
+      micToggle.textContent = "Start Listening";
+      micToggle.classList.remove("active");
+      return;
+    }
+    try {
+      await startMic();
+      micToggle.textContent = "Stop Listening";
+      micToggle.classList.add("active");
+      addAdvisory("Listening. Speak callouts naturally; the agent extracts and timestamps them.", "warning");
+    } catch (err) {
+      alert("Microphone access failed: " + err.message);
+    }
+  });
+
+  document.getElementById("start-code-btn").addEventListener("click", async () => {
+    await fetch("/api/code-started", { method: "POST" });
+  });
+  document.getElementById("replay-clean").addEventListener("click", () => { window.location = "/agent?replay=clean_take_1.wav"; });
+  document.getElementById("replay-messy").addEventListener("click", () => { window.location = "/agent?replay=messy_take_1.wav"; });
+  document.getElementById("reset-btn").addEventListener("click", async () => {
+    await fetch("/api/reset", { method: "POST" });
+  });
+
+  const qaInput = document.getElementById("qa-input");
+  const qaAsk = document.getElementById("qa-ask");
+  async function askQuestion() {
+    const question = qaInput.value.trim();
+    if (!question) return;
+    qaAsk.disabled = true;
+    addEntry(metaHtml("heard-chip", "Question", Date.now()) + '<div class="body">' + esc(question) + "</div>", "heard");
+    try {
+      const res = await fetch("/api/judge-qa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const data = await res.json();
+      addEntry(
+        metaHtml("record-chip", "Answer", Date.now()) +
+        '<div class="body record-text">' + esc(data.ok ? data.answer : "Failed: " + (data.error || "unknown error")) + "</div>",
+        "record"
+      );
+      qaInput.value = "";
+    } finally {
+      qaAsk.disabled = false;
+    }
+  }
+  qaAsk.addEventListener("click", askQuestion);
+  qaInput.addEventListener("keydown", (ev) => { if (ev.key === "Enter") askQuestion(); });
+
+  connectWebSocket();
+  initConnectivity();
+})();
+</script>
+</body>
+</html>
