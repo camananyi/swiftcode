@@ -22,10 +22,19 @@
   html, body {
     margin: 0;
     height: 100%;
-    background: var(--bg);
+    background:
+      radial-gradient(1100px 520px at 72% -12%, rgba(78, 168, 255, 0.09), transparent 60%),
+      radial-gradient(900px 480px at 8% 112%, rgba(53, 212, 136, 0.05), transparent 60%),
+      var(--bg);
     color: var(--text);
     font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
   }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2b3442; border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: #38445a; }
+  button { transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.2s; }
+  button:active { transform: scale(0.97); }
   body {
     display: flex;
     flex-direction: column;
@@ -37,7 +46,8 @@
     justify-content: space-between;
     padding: 10px 20px;
     border-bottom: 1px solid var(--border);
-    background: var(--panel);
+    background: linear-gradient(180deg, #161c26, var(--panel));
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
     flex-shrink: 0;
   }
   header .brand {
@@ -67,6 +77,19 @@
     color: var(--text);
     font-size: 18px;
   }
+  #start-code-btn {
+    margin-left: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--alert);
+    background: rgba(255, 85, 102, 0.12);
+    color: var(--alert);
+    cursor: pointer;
+  }
+  #start-code-btn:hover { background: rgba(255, 85, 102, 0.24); box-shadow: 0 0 12px rgba(255, 85, 102, 0.35); }
+  #start-code-btn.hidden { display: none; }
 
   #connectivity {
     display: flex;
@@ -101,6 +124,8 @@
   #latency-panel.hidden { display: none; }
   #latency-panel .latency-item strong { color: var(--accent); font-weight: 700; }
   #latency-panel .latency-n { font-size: 10.5px; opacity: 0.7; }
+  #latency-compare { font-size: 10.5px; color: var(--text-dim); }
+  #latency-compare strong { color: var(--ok); font-weight: 700; }
 
   #replay-banner {
     display: none;
@@ -148,10 +173,13 @@
   }
   .timeline-item {
     border-left: 2px solid var(--border);
-    padding: 8px 0 8px 12px;
+    padding: 8px 8px 8px 12px;
     margin-bottom: 2px;
     position: relative;
+    border-radius: 0 8px 8px 0;
+    transition: background 0.15s;
   }
+  .timeline-item:hover { background: rgba(78, 168, 255, 0.05); }
   .timeline-item::before {
     content: "";
     position: absolute;
@@ -180,12 +208,14 @@
     flex-wrap: wrap;
   }
   .timer-card {
-    background: var(--panel-2);
+    background: linear-gradient(180deg, var(--panel-2), #121722);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 14px 26px;
     min-width: 220px;
     text-align: center;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+    transition: border-color 0.25s, box-shadow 0.25s;
   }
   .timer-card .name {
     font-size: 11px;
@@ -243,6 +273,7 @@
     justify-content: space-between;
     padding-right: 16px;
   }
+  .transcript-actions { display: flex; gap: 8px; }
   #mic-toggle {
     font-size: 12px;
     font-weight: 600;
@@ -253,11 +284,24 @@
     color: var(--text);
     cursor: pointer;
   }
+  #mic-toggle:hover { border-color: var(--accent); }
   #mic-toggle.active {
     background: var(--alert);
     border-color: var(--alert);
     color: #2a0508;
+    box-shadow: 0 0 12px rgba(255, 85, 102, 0.45);
   }
+  #guide-toggle {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(78, 168, 255, 0.45);
+    background: rgba(78, 168, 255, 0.08);
+    color: var(--accent);
+    cursor: pointer;
+  }
+  #guide-toggle:hover { background: rgba(78, 168, 255, 0.18); }
   #transcript {
     flex: 1;
     overflow-y: auto;
@@ -376,6 +420,137 @@
     max-height: 260px;
     overflow-y: auto;
   }
+  .export-actions button:hover { background: rgba(78, 168, 255, 0.14); }
+
+  #summary-table-wrap { margin-bottom: 14px; overflow-x: auto; }
+  .record-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .record-table th {
+    text-align: left;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .record-table td { padding: 6px 10px; border-bottom: 1px solid rgba(38, 45, 57, 0.55); }
+  .record-table tr:last-child td { border-bottom: none; }
+  .record-table td.t { font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); white-space: nowrap; }
+  .record-table td.src { text-transform: uppercase; font-size: 10px; color: var(--text-dim); letter-spacing: 0.04em; }
+
+  #judge-qa {
+    margin-top: 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  #judge-qa .qa-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  #judge-qa .row { display: flex; gap: 8px; }
+  #judge-question {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+  #judge-question:focus { outline: none; border-color: var(--accent); }
+  #judge-ask {
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    background: rgba(78, 168, 255, 0.1);
+    color: var(--accent);
+    cursor: pointer;
+  }
+  #judge-ask:hover { background: rgba(78, 168, 255, 0.2); }
+  #judge-ask:disabled { opacity: 0.5; cursor: default; }
+  #judge-answer { margin-top: 10px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
+  #judge-answer.dim { color: var(--text-dim); }
+
+  #guide-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 6, 10, 0.72);
+    backdrop-filter: blur(3px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+  #guide-overlay.visible { display: flex; }
+  #guide-modal {
+    width: min(760px, 92vw);
+    max-height: 84vh;
+    overflow-y: auto;
+    background: linear-gradient(180deg, #151b26, var(--panel));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  }
+  .guide-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .guide-head h2 { font-size: 16px; margin: 0; }
+  #guide-close {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+  #guide-close:hover { color: var(--text); border-color: var(--text-dim); }
+  .guide-sub { font-size: 12px; color: var(--text-dim); margin: 4px 0 14px; }
+  .guide-group { margin-bottom: 14px; }
+  .guide-group h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--accent);
+    margin: 0 0 6px;
+  }
+  .guide-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 7px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .guide-item:hover { background: rgba(78, 168, 255, 0.07); border-color: rgba(78, 168, 255, 0.3); }
+  .guide-item .phrase { font-family: var(--mono); font-size: 12.5px; color: var(--text); }
+  .guide-item .fires { font-size: 11.5px; color: var(--text-dim); text-align: right; flex-shrink: 0; max-width: 46%; }
+  .guide-item.copied .fires { color: var(--ok); }
+  .guide-note {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    line-height: 1.5;
+  }
 </style>
 </head>
 <body>
@@ -385,11 +560,12 @@
     <h1>SwiftCode</h1>
     <span class="profile" id="profile-badge">profile: -</span>
   </div>
-  <div class="elapsed">Code time <strong id="elapsed-value">-:--</strong></div>
+  <div class="elapsed">Code time <strong id="elapsed-value">-:--</strong><button id="start-code-btn">Start Code</button></div>
   <div id="latency-panel" class="hidden">
     <span class="latency-item">STT <strong id="latency-stt">--</strong>ms</span>
     <span class="latency-item">Event <strong id="latency-event">--</strong>ms</span>
     <span class="latency-n" id="latency-n"></span>
+    <span id="latency-compare"></span>
   </div>
   <div id="connectivity" class="checking"><span class="dot"></span><span id="connectivity-label">Checking...</span></div>
 </header>
@@ -418,7 +594,10 @@
     <div id="transcript-panel">
       <div class="transcript-header">
         <h2>Live Transcript</h2>
-        <button id="mic-toggle">Start Mic</button>
+        <div class="transcript-actions">
+          <button id="guide-toggle">Callout Guide</button>
+          <button id="mic-toggle">Start Mic</button>
+        </div>
       </div>
       <div id="transcript"><div class="empty">Transcript will appear here once audio input starts.</div></div>
     </div>
@@ -433,10 +612,12 @@
       <h2>Post-Event Summary</h2>
       <div class="export-actions">
         <span class="export-label">Export to documentation platform</span>
+        <button id="export-copy">Copy Markdown</button>
         <button id="export-json">Download JSON</button>
         <button id="export-md">Download Markdown</button>
       </div>
     </div>
+    <div id="summary-table-wrap"></div>
     <div class="summary-jobs">
       <div class="summary-job" id="summary-job-code_record">
         <div class="job-title">Code Record</div>
@@ -449,8 +630,33 @@
         <div class="job-text" id="summary-text-debrief"></div>
       </div>
     </div>
+    <div id="judge-qa">
+      <div class="qa-title">Judge Q&amp;A</div>
+      <div class="row">
+        <input id="judge-question" placeholder="Ask a factual question about the completed code, answered from the event log only" />
+        <button id="judge-ask">Ask</button>
+      </div>
+      <div id="judge-answer" class="dim"></div>
+    </div>
   </section>
 </main>
+
+<div id="guide-overlay">
+  <div id="guide-modal">
+    <div class="guide-head">
+      <h2>ACLS Callout Guide</h2>
+      <button id="guide-close">Close</button>
+    </div>
+    <p class="guide-sub">Sample callouts the rules layer logs instantly. Click any phrase to copy it. Speak one callout at a time with a short pause between phrases.</p>
+    <div id="guide-groups"></div>
+    <div class="guide-note">
+      Medication callouts need an action verb: pushing, giving, gave, administered, on board, going in.
+      Rhythm words are recorded verbatim as spoken, never interpreted.
+      Negated phrases ("hold off on epi", "don't give amiodarone") and past references ("we shocked him yesterday") are deliberately ignored.
+      Anything else real but unclassifiable is kept as a note, nothing is dropped.
+    </div>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -498,6 +704,10 @@
 
   function fmtClockTime(ts) {
     return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
   function eventDetail(e) {
@@ -601,8 +811,33 @@
     failed: "Failed",
   };
 
+  // Full timestamped event table rendered with the record at ROSC/termination.
+  function renderSummaryTable() {
+    if (!summaryPanel.classList.contains("visible")) return;
+    const wrap = document.getElementById("summary-table-wrap");
+    const sorted = [...state.log].sort((a, b) => a.timestamp - b.timestamp);
+    if (sorted.length === 0) {
+      wrap.innerHTML = "";
+      return;
+    }
+    wrap.innerHTML =
+      '<table class="record-table"><thead><tr><th>Time</th><th>Event</th><th>Detail</th><th>Source</th></tr></thead><tbody>' +
+      sorted
+        .map((e) => {
+          const detail = eventDetail(e) || (e.event_type === "note" ? e.verbatim || "" : "");
+          return (
+            '<tr><td class="t">' + fmtClockTime(e.timestamp) + "</td><td>" +
+            esc(EVENT_LABELS[e.event_type] || e.event_type) + "</td><td>" +
+            esc(detail) + '</td><td class="src">' + esc(e.source || "") + "</td></tr>"
+          );
+        })
+        .join("") +
+      "</tbody></table>";
+  }
+
   function renderSummaryJob(msg) {
     summaryPanel.classList.add("visible");
+    renderSummaryTable();
     const statusEl = document.getElementById("summary-status-" + msg.name);
     const textEl = document.getElementById("summary-text-" + msg.name);
     if (!statusEl || !textEl) return;
@@ -614,7 +849,10 @@
   }
 
   const MAX_LATENCY_SAMPLES = 20;
-  const latencySamples = { stt: [], event: [] };
+  // Samples bucketed per profile, in memory only: if the server restarts under a
+  // different profile mid-session, the panel shows a live measured comparison.
+  // Only values measured in the current session are ever displayed.
+  const latencyByProfile = {};
   const latencyPanel = document.getElementById("latency-panel");
 
   function pushSample(arr, value) {
@@ -627,13 +865,28 @@
     return arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : null;
   }
 
+  function renderLatencyComparison(currentProfile) {
+    const compareEl = document.getElementById("latency-compare");
+    const others = Object.keys(latencyByProfile).filter(
+      (p) => p !== currentProfile && latencyByProfile[p].stt.length > 0
+    );
+    compareEl.textContent = others
+      .map((p) => {
+        const bucket = latencyByProfile[p];
+        return "vs " + p + ": STT " + (average(bucket.stt) ?? "--") + "ms, Event " + (average(bucket.event) ?? "--") + "ms";
+      })
+      .join("  ");
+  }
+
   function recordLatencySample(msg) {
-    pushSample(latencySamples.stt, msg.sttMs);
-    pushSample(latencySamples.event, msg.eventMs);
+    const bucket = (latencyByProfile[msg.profile] = latencyByProfile[msg.profile] || { stt: [], event: [] });
+    pushSample(bucket.stt, msg.sttMs);
+    pushSample(bucket.event, msg.eventMs);
     latencyPanel.classList.remove("hidden");
-    document.getElementById("latency-stt").textContent = average(latencySamples.stt) ?? "--";
-    document.getElementById("latency-event").textContent = average(latencySamples.event) ?? "--";
-    document.getElementById("latency-n").textContent = "avg of " + latencySamples.stt.length + " (" + msg.profile + ")";
+    document.getElementById("latency-stt").textContent = average(bucket.stt) ?? "--";
+    document.getElementById("latency-event").textContent = average(bucket.event) ?? "--";
+    document.getElementById("latency-n").textContent = "avg of " + bucket.stt.length + " (" + msg.profile + ")";
+    renderLatencyComparison(msg.profile);
   }
 
   const replayBanner = document.getElementById("replay-banner");
@@ -698,6 +951,7 @@
         renderTimeline();
         renderConfirmQueue();
         renderTimers();
+        updateStartCodeButton();
         for (const [name, result] of Object.entries(msg.summary || {})) {
           renderSummaryJob({ name, ...result });
         }
@@ -714,6 +968,8 @@
         }
         renderTimeline();
         renderConfirmQueue();
+        updateStartCodeButton();
+        renderSummaryTable();
       } else if (msg.type === "timers") {
         state.timers = msg.timers;
         renderTimers();
@@ -832,6 +1088,161 @@
   });
   document.getElementById("export-md").addEventListener("click", () => {
     window.location = "/api/export.md";
+  });
+
+  const copyBtn = document.getElementById("export-copy");
+  copyBtn.addEventListener("click", async () => {
+    try {
+      const res = await fetch("/api/export.md");
+      await navigator.clipboard.writeText(await res.text());
+      copyBtn.textContent = "Copied";
+    } catch (err) {
+      copyBtn.textContent = "Copy failed";
+    }
+    setTimeout(() => (copyBtn.textContent = "Copy Markdown"), 1500);
+  });
+
+  // Manual code-start: the spec's other path into code_started besides a detected
+  // callout. Hidden once a code is running.
+  const startCodeBtn = document.getElementById("start-code-btn");
+
+  function updateStartCodeButton() {
+    startCodeBtn.classList.toggle("hidden", state.log.some((e) => e.event_type === "code_started"));
+  }
+
+  startCodeBtn.addEventListener("click", async () => {
+    startCodeBtn.disabled = true;
+    try {
+      await fetch("/api/code-started", { method: "POST" });
+    } finally {
+      startCodeBtn.disabled = false;
+    }
+  });
+
+  const judgeAsk = document.getElementById("judge-ask");
+  const judgeQuestion = document.getElementById("judge-question");
+  const judgeAnswer = document.getElementById("judge-answer");
+
+  async function askJudgeQuestion() {
+    const question = judgeQuestion.value.trim();
+    if (!question) return;
+    judgeAsk.disabled = true;
+    judgeAnswer.className = "dim";
+    judgeAnswer.textContent = "Answering from the event log...";
+    try {
+      const res = await fetch("/api/judge-qa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const data = await res.json();
+      judgeAnswer.className = data.ok ? "" : "dim";
+      judgeAnswer.textContent = data.ok ? data.answer : "Failed: " + (data.error || "unknown error");
+    } catch (err) {
+      judgeAnswer.className = "dim";
+      judgeAnswer.textContent = "Failed: " + err.message;
+    } finally {
+      judgeAsk.disabled = false;
+    }
+  }
+
+  judgeAsk.addEventListener("click", askJudgeQuestion);
+  judgeQuestion.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") askJudgeQuestion();
+  });
+
+  // Callout guide modal: sample phrases the rules layer resolves instantly.
+  // Click a phrase to copy it. Content mirrors rules.js patterns.
+  const GUIDE = [
+    {
+      group: "Code lifecycle",
+      items: [
+        ["Code blue, room four", "Code started, elapsed clock begins"],
+        ["We have a pulse", "ROSC achieved, ends timers, generates the record"],
+        ["Calling time of death, 14:32", "Code terminated, ends timers, generates the record"],
+      ],
+    },
+    {
+      group: "CPR",
+      items: [
+        ["Starting compressions", "CPR started, 2 minute cycle timer begins"],
+        ["Hold compressions, checking pulse", "CPR paused"],
+        ["Resume compressions", "CPR resumed, cycle timer resets"],
+      ],
+    },
+    {
+      group: "Medications",
+      items: [
+        ["Pushing one milligram of epinephrine IV push", "Medication administered: epinephrine, starts the 3 minute interval timer"],
+        ["Epi's in", "Medication administered: epinephrine"],
+        ["Amiodarone 300 milligrams pushed", "Medication administered: amiodarone 300mg"],
+        ["Atropine is going in", "Medication administered: atropine"],
+        ["Narcan on board", "Medication administered: naloxone"],
+        ["Giving lidocaine", "Medication administered: lidocaine"],
+      ],
+    },
+    {
+      group: "Rhythm and defibrillation",
+      items: [
+        ["Asystole on the monitor", "Rhythm check: asystole (verbatim)"],
+        ["Looks like v-fib", "Rhythm check: v-fib (verbatim)"],
+        ["Charging to two hundred... everybody clear... shock delivered", "Shock delivered: 200 J"],
+        ["Defibrillating at 200 joules", "Shock delivered: 200 J"],
+      ],
+    },
+    {
+      group: "Airway and access",
+      items: [
+        ["King airway is in", "Airway placed: King airway"],
+        ["Intubated successfully", "Airway placed: ETT"],
+        ["Bagging with a BVM", "Airway placed: BVM"],
+        ["Got an IV in the right AC", "Access established: IV, right AC"],
+        ["IO access in the left tibia", "Access established: IO"],
+      ],
+    },
+  ];
+
+  const guideOverlay = document.getElementById("guide-overlay");
+  const guideGroups = document.getElementById("guide-groups");
+
+  guideGroups.innerHTML = GUIDE.map(
+    ({ group, items }) =>
+      '<div class="guide-group"><h3>' + esc(group) + "</h3>" +
+      items
+        .map(
+          ([phrase, fires]) =>
+            '<div class="guide-item" data-phrase="' + esc(phrase) + '">' +
+            '<span class="phrase">"' + esc(phrase) + '"</span>' +
+            '<span class="fires" data-fires="' + esc(fires) + '">' + esc(fires) + "</span></div>"
+        )
+        .join("") +
+      "</div>"
+  ).join("");
+
+  guideGroups.addEventListener("click", async (ev) => {
+    const item = ev.target.closest(".guide-item");
+    if (!item) return;
+    try {
+      await navigator.clipboard.writeText(item.getAttribute("data-phrase"));
+      const fires = item.querySelector(".fires");
+      item.classList.add("copied");
+      fires.textContent = "Copied to clipboard";
+      setTimeout(() => {
+        item.classList.remove("copied");
+        fires.textContent = fires.getAttribute("data-fires");
+      }, 1200);
+    } catch (err) {
+      /* clipboard unavailable, phrase is still visible to read */
+    }
+  });
+
+  document.getElementById("guide-toggle").addEventListener("click", () => guideOverlay.classList.add("visible"));
+  document.getElementById("guide-close").addEventListener("click", () => guideOverlay.classList.remove("visible"));
+  guideOverlay.addEventListener("click", (ev) => {
+    if (ev.target === guideOverlay) guideOverlay.classList.remove("visible");
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") guideOverlay.classList.remove("visible");
   });
 
   connectWebSocket();

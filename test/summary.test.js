@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
-import { formatEventLog, formatEpiIntervals, runPostEventSummary, SummaryQueue } from "../src/pipeline/summary.js";
+import { formatEventLog, formatEpiIntervals, runPostEventSummary, SummaryQueue, isNetworkError } from "../src/pipeline/summary.js";
 import { getConfig } from "../src/config.js";
 
 const T0 = Date.parse("2026-07-18T14:00:00Z");
@@ -23,6 +23,26 @@ const SAMPLE_EVENTS = [
   },
   { event_type: "rosc_achieved", timestamp: T0 + sec(600), source: "rules" },
 ];
+
+describe("isNetworkError", () => {
+  test("transient transport failures are classified as network errors so they queue and retry", () => {
+    for (const message of [
+      "fetch failed",
+      "ECONNREFUSED",
+      "ECONNRESET",
+      "The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()",
+      "Unable to connect. Is the computer able to access the url?",
+    ]) {
+      expect(isNetworkError(new Error(message))).toBe(true);
+    }
+    expect(isNetworkError(Object.assign(new Error("x"), { name: "TimeoutError" }))).toBe(true);
+  });
+
+  test("non-network failures surface immediately instead of retrying forever", () => {
+    expect(isNetworkError(new Error("ANTHROPIC_API_KEY not set"))).toBe(false);
+    expect(isNetworkError(new Error("Claude API returned HTTP 401: invalid x-api-key"))).toBe(false);
+  });
+});
 
 describe("formatEventLog", () => {
   test("renders events chronologically regardless of input order", () => {
@@ -94,7 +114,7 @@ describe("runPostEventSummary offline queue behavior", () => {
   test("a successful call returns completed status with generated text", async () => {
     global.fetch = mock(() =>
       Promise.resolve(
-        new Response(JSON.stringify({ content: [{ text: "Chronological record here." }] }), { status: 200 })
+        new Response(JSON.stringify({ content: [{ type: "text", text: "Chronological record here." }] }), { status: 200 })
       )
     );
     const queue = new SummaryQueue();
@@ -124,7 +144,7 @@ describe("SummaryQueue retry-until-success", () => {
       // First two calls are the initial code_record + debrief attempts (both offline);
       // every call after that (the retries) succeeds.
       if (callCount <= 2) return Promise.reject(new Error("fetch failed"));
-      return Promise.resolve(new Response(JSON.stringify({ content: [{ text: "Recovered." }] }), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ content: [{ type: "text", text: "Recovered." }] }), { status: 200 }));
     });
 
     const statuses = [];

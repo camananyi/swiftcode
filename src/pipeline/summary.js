@@ -31,6 +31,9 @@ function isNetworkError(err) {
     message.includes("fetch failed") ||
     message.includes("econnrefused") ||
     message.includes("enotfound") ||
+    message.includes("econnreset") ||
+    message.includes("socket connection") ||
+    message.includes("connection closed") ||
     message.includes("unable to connect") ||
     message.includes("network")
   );
@@ -111,7 +114,9 @@ async function callClaude({ system, messages, maxTokens = 1024 }, config) {
   }
 
   const data = await res.json();
-  return data.content?.[0]?.text ?? "";
+  // The model may emit a thinking block before the text block — take the text block,
+  // not blindly content[0].
+  return data.content?.find((block) => block.type === "text")?.text ?? "";
 }
 
 // Call site 1: narrative code record.

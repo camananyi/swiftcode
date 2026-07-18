@@ -176,6 +176,17 @@ const server = Bun.serve({
       return Response.json({ ok: Boolean(event), event });
     }
 
+    // Manual code-start (spec: code_started comes from a manual button OR the first
+    // detected callout). Logged directly with source "manual", never routed through
+    // ingest's rules/llm gating.
+    if (url.pathname === "/api/code-started" && req.method === "POST") {
+      if (store.getLog().some((e) => e.event_type === "code_started")) {
+        return Response.json({ ok: false, error: "Code already started" }, { status: 409 });
+      }
+      const event = store.logEvent({ event_type: "code_started", timestamp: Date.now(), source: "manual" });
+      return Response.json({ ok: true, event });
+    }
+
     if (url.pathname === "/api/export.json" && req.method === "GET") {
       const body = buildStructuredExport(store.getLog(), { profileName: config.profileName });
       return new Response(JSON.stringify(body, null, 2), {
