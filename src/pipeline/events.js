@@ -111,6 +111,14 @@ export class EventStore {
     return rejected;
   }
 
+  // Demo-console reset: wipes the session so demo takes can restart without a server
+  // restart. The live log remains append-only between resets.
+  reset() {
+    this.log = [];
+    this.pending = [];
+    this._nextId = 1;
+  }
+
   getLog() {
     return [...this.log];
   }

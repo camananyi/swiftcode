@@ -161,7 +161,24 @@ const server = Bun.serve({
     }
 
     if (url.pathname === "/api/config" && req.method === "GET") {
-      return Response.json({ profile: config.profileName, connectivity: config.connectivity });
+      return Response.json({
+        profile: config.profileName,
+        host: new URL(config.profile.stt_base_url).host,
+        connectivity: config.connectivity,
+        timers: config.timers,
+      });
+    }
+
+    // Demo-console reset: clears the event store and summary state, then pushes a
+    // fresh snapshot to every connected client.
+    if (url.pathname === "/api/reset" && req.method === "POST") {
+      store.reset();
+      summaryTriggered = false;
+      summaryQueue.jobs.length = 0;
+      for (const key of Object.keys(summaryResults)) delete summaryResults[key];
+      broadcast({ type: "reset" });
+      broadcast(snapshotMessage());
+      return Response.json({ ok: true });
     }
 
     if (url.pathname === "/api/confirm" && req.method === "POST") {
