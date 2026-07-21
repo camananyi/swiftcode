@@ -171,8 +171,6 @@
   <div class="controls">
     <button id="mic-toggle">Start Listening</button>
     <button id="start-code-btn">Start Code</button>
-    <button id="replay-clean">Replay clean take</button>
-    <button id="replay-messy">Replay messy take</button>
     <button id="reset-btn">Reset session</button>
   </div>
 
@@ -197,6 +195,18 @@
 
 <script>
 (function () {
+  // Per-tab session id: every browser tab gets its own isolated pipeline session
+  // on the server. sessionStorage keeps it stable across reloads of the same tab.
+  const SID = (() => {
+    let sid = sessionStorage.getItem("swiftcode_sid");
+    if (!sid) {
+      sid = crypto.randomUUID();
+      sessionStorage.setItem("swiftcode_sid", sid);
+    }
+    return sid;
+  })();
+  const withSid = (path) => path + (path.includes("?") ? "&" : "?") + "sid=" + SID;
+
   const state = { log: [], timers: null, lastEpiStatus: "none", lastCprStatus: "none", summaryShown: {} };
 
   const streamEl = document.getElementById("stream");
@@ -330,7 +340,7 @@
     const btn = ev.target.closest("button[data-action]");
     if (!btn) return;
     btn.disabled = true;
-    await fetch("/api/" + btn.getAttribute("data-action"), {
+    await fetch(withSid("/api/" + btn.getAttribute("data-action")), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: btn.getAttribute("data-id") }),
@@ -364,8 +374,8 @@
         "<details><summary>Read it</summary>" +
         '<div class="record-text">' + esc(msg.text || "") + "</div></details>" +
         '<div class="dl-row">' +
-        '<a href="/api/export.md" download>Download record (markdown)</a>' +
-        '<a href="/api/export.json" download>Download structured JSON</a>' +
+        '<a href="' + withSid("/api/export.md") + '" download>Download record (markdown)</a>' +
+        '<a href="' + withSid("/api/export.json") + '" download>Download structured JSON</a>' +
         "</div>";
       document.getElementById("qa-box").classList.add("visible");
     } else if (msg.status === "queued") {
@@ -423,7 +433,7 @@
 
   function connectWebSocket() {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(proto + "//" + location.host + "/ws");
+    const ws = new WebSocket(proto + "//" + location.host + "/ws?sid=" + SID);
     activeSocket = ws;
 
     ws.addEventListener("message", (ev) => {
@@ -521,6 +531,15 @@
   async function startMic() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Autoplay policy can suspend a context created without a user gesture; resume it,
+    // and if the browser insists on a gesture, the first click anywhere unblocks it.
+    if (ctx.state === "suspended") {
+      await ctx.resume().catch(() => {});
+      if (ctx.state === "suspended") {
+        const resume = () => { ctx.resume(); document.removeEventListener("click", resume); };
+        document.addEventListener("click", resume);
+      }
+    }
     const source = ctx.createMediaStreamSource(stream);
     const processor = ctx.createScriptProcessor(4096, 1, 1);
     processor.onaudioprocess = (ev) => {
@@ -560,12 +579,10 @@
   });
 
   document.getElementById("start-code-btn").addEventListener("click", async () => {
-    await fetch("/api/code-started", { method: "POST" });
+    await fetch(withSid("/api/code-started"), { method: "POST" });
   });
-  document.getElementById("replay-clean").addEventListener("click", () => { window.location = "/agent?replay=clean_take_1.wav"; });
-  document.getElementById("replay-messy").addEventListener("click", () => { window.location = "/agent?replay=messy_take_1.wav"; });
   document.getElementById("reset-btn").addEventListener("click", async () => {
-    await fetch("/api/reset", { method: "POST" });
+    await fetch(withSid("/api/reset"), { method: "POST" });
   });
 
   const qaInput = document.getElementById("qa-input");
@@ -576,7 +593,7 @@
     qaAsk.disabled = true;
     addEntry(metaHtml("heard-chip", "Question", Date.now()) + '<div class="body">' + esc(question) + "</div>", "heard");
     try {
-      const res = await fetch("/api/judge-qa", {
+      const res = await fetch(withSid("/api/judge-qa"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question }),
@@ -597,6 +614,30 @@
 
   connectWebSocket();
   initConnectivity();
+
+  // Fresh session on every load: clear this tab's own session, then start
+  // listening immediately. Other visitors' sessions are unaffected. If the
+  // browser blocks the mic without a user gesture (first visit, or permission
+  // not yet granted), the toggle still works manually.
+  (async function autoStart() {
+    try { await fetch(withSid("/api/reset"), { method: "POST" }); } catch { /* server unreachable; stream will show it */ }
+    const replayParam = new URLSearchParams(location.search).get("replay");
+    if (replayParam) {
+      await fetch(withSid("/api/replay"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: replayParam }),
+      });
+    }
+    try {
+      await startMic();
+      micToggle.textContent = "Stop Listening";
+      micToggle.classList.add("active");
+      addAdvisory("Listening. Speak callouts naturally; the agent extracts and timestamps them.", "warning");
+    } catch (err) {
+      addAdvisory("Microphone did not start automatically (" + err.message + "). Click Start Listening.", "warning");
+    }
+  })();
 })();
 </script>
 </body>

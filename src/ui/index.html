@@ -841,6 +841,18 @@
 
 <script>
 (function () {
+  // Per-tab session id: every browser tab gets its own isolated pipeline session
+  // on the server. sessionStorage keeps it stable across reloads of the same tab.
+  const SID = (() => {
+    let sid = sessionStorage.getItem("swiftcode_sid");
+    if (!sid) {
+      sid = crypto.randomUUID();
+      sessionStorage.setItem("swiftcode_sid", sid);
+    }
+    return sid;
+  })();
+  const withSid = (path) => path + (path.includes("?") ? "&" : "?") + "sid=" + SID;
+
   const state = { log: [], pending: [], timers: null, connectivityConfig: null };
 
   const el = {
@@ -1036,7 +1048,7 @@
     const id = card.getAttribute("data-id");
     const action = btn.getAttribute("data-action");
     btn.closest(".actions").querySelectorAll("button").forEach((b) => (b.disabled = true));
-    await fetch("/api/" + action, {
+    await fetch(withSid("/api/" + action), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
@@ -1207,7 +1219,7 @@
 
   function connectWebSocket() {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(proto + "//" + location.host + "/ws");
+    const ws = new WebSocket(proto + "//" + location.host + "/ws?sid=" + SID);
     activeSocket = ws;
 
     ws.addEventListener("message", (ev) => {
@@ -1369,16 +1381,16 @@
   });
 
   document.getElementById("export-json").addEventListener("click", () => {
-    window.location = "/api/export.json";
+    window.location = withSid("/api/export.json");
   });
   document.getElementById("export-md").addEventListener("click", () => {
-    window.location = "/api/export.md";
+    window.location = withSid("/api/export.md");
   });
 
   const copyBtn = document.getElementById("export-copy");
   copyBtn.addEventListener("click", async () => {
     try {
-      const res = await fetch("/api/export.md");
+      const res = await fetch(withSid("/api/export.md"));
       await navigator.clipboard.writeText(await res.text());
       copyBtn.textContent = "Copied";
     } catch (err) {
@@ -1398,7 +1410,7 @@
   startCodeBtn.addEventListener("click", async () => {
     startCodeBtn.disabled = true;
     try {
-      await fetch("/api/code-started", { method: "POST" });
+      await fetch(withSid("/api/code-started"), { method: "POST" });
     } finally {
       startCodeBtn.disabled = false;
     }
@@ -1415,7 +1427,7 @@
     judgeAnswer.className = "dim";
     judgeAnswer.textContent = "Answering from the event log...";
     try {
-      const res = await fetch("/api/judge-qa", {
+      const res = await fetch(withSid("/api/judge-qa"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question }),
@@ -1530,20 +1542,27 @@
     if (ev.key === "Escape") guideOverlay.classList.remove("visible");
   });
 
-  // Demo console strip: replay buttons load the canned takes through the real
-  // pipeline; Reset clears the session server-side and every client refreshes.
-  document.getElementById("demo-replay-clean").addEventListener("click", () => {
-    window.location = "/?replay=clean_take_1.wav";
-  });
-  document.getElementById("demo-replay-messy").addEventListener("click", () => {
-    window.location = "/?replay=messy_take_1.wav";
-  });
+  // Demo console strip: replay buttons stream the canned takes through this
+  // session's pipeline; Reset clears this session only.
+  async function startReplayFile(filename) {
+    await fetch(withSid("/api/replay"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename }),
+    });
+  }
+  document.getElementById("demo-replay-clean").addEventListener("click", () => startReplayFile("clean_take_1.wav"));
+  document.getElementById("demo-replay-messy").addEventListener("click", () => startReplayFile("messy_take_1.wav"));
   document.getElementById("demo-reset").addEventListener("click", async () => {
-    await fetch("/api/reset", { method: "POST" });
+    await fetch(withSid("/api/reset"), { method: "POST" });
   });
 
   connectWebSocket();
   initConnectivityPolling();
+
+  // ?replay=file.wav on the page URL still works, now scoped to this session.
+  const replayParam = new URLSearchParams(location.search).get("replay");
+  if (replayParam) startReplayFile(replayParam);
 })();
 </script>
 </body>
