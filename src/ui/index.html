@@ -683,8 +683,7 @@
 
 <div id="demo-strip">
   <span class="demo-label">SWIFTCODE / DEMO CONSOLE</span>
-  <button id="demo-replay-clean">Replay clean take</button>
-  <button id="demo-replay-messy">Replay messy take</button>
+  <button id="mic-toggle">Start Mic</button>
   <button id="demo-reset">Reset</button>
 </div>
 
@@ -816,7 +815,6 @@
     <h2>Live Transcript</h2>
     <div class="transcript-actions">
       <button id="guide-toggle">Callout Guide</button>
-      <button id="mic-toggle">Start Mic</button>
     </div>
   </div>
   <div id="transcript"><div class="empty">Transcript will appear here once audio input starts.</div></div>
@@ -1339,6 +1337,15 @@
   async function startMic() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    // Autoplay policy can suspend a context created without a user gesture; resume it,
+    // and if the browser insists on a gesture, the first click anywhere unblocks it.
+    if (audioContext.state === "suspended") {
+      await audioContext.resume().catch(() => {});
+      if (audioContext.state === "suspended") {
+        const resume = () => { audioContext.resume(); document.removeEventListener("click", resume); };
+        document.addEventListener("click", resume);
+      }
+    }
     const source = audioContext.createMediaStreamSource(stream);
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
     const inputSampleRate = audioContext.sampleRate;
@@ -1542,8 +1549,7 @@
     if (ev.key === "Escape") guideOverlay.classList.remove("visible");
   });
 
-  // Demo console strip: replay buttons stream the canned takes through this
-  // session's pipeline; Reset clears this session only.
+  // Demo console strip: Reset clears this session only.
   async function startReplayFile(filename) {
     await fetch(withSid("/api/replay"), {
       method: "POST",
@@ -1551,8 +1557,6 @@
       body: JSON.stringify({ filename }),
     });
   }
-  document.getElementById("demo-replay-clean").addEventListener("click", () => startReplayFile("clean_take_1.wav"));
-  document.getElementById("demo-replay-messy").addEventListener("click", () => startReplayFile("messy_take_1.wav"));
   document.getElementById("demo-reset").addEventListener("click", async () => {
     await fetch(withSid("/api/reset"), { method: "POST" });
   });
@@ -1560,9 +1564,22 @@
   connectWebSocket();
   initConnectivityPolling();
 
-  // ?replay=file.wav on the page URL still works, now scoped to this session.
+  // ?replay=file.wav on the page URL streams a canned take into this session.
   const replayParam = new URLSearchParams(location.search).get("replay");
   if (replayParam) startReplayFile(replayParam);
+
+  // Start listening immediately. If the browser blocks the mic without a user
+  // gesture (first visit, or permission not yet granted), the toggle still
+  // works manually.
+  (async function autoStartMic() {
+    try {
+      await startMic();
+      micToggle.textContent = "Stop Mic";
+      micToggle.classList.add("active");
+    } catch (err) {
+      /* permission prompt pending or denied; the Start Mic toggle remains */
+    }
+  })();
 })();
 </script>
 </body>
