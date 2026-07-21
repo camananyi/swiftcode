@@ -12,11 +12,12 @@ const DRUGS = [
   { drug: "sodium bicarbonate", aliases: ["sodium bicarbonate", "bicarbonate", "bicarb"] },
   { drug: "magnesium", aliases: ["magnesium sulfate", "magnesium", "mag sulfate"] },
   { drug: "naloxone", aliases: ["naloxone", "narcan"] },
+  { drug: "epinephrine", aliases: ["epinephrine", "epi's", "epis", "epi", "adrenaline"] }, // add adrenaline
+  { drug: "vasopressin", aliases: ["vasopressin", "vaso"] },
+  { drug: "procainamide", aliases: ["procainamide", "pro-cain"] },
 ];
 
-const NEGATION_PATTERN =
-  /\b(hold off|holding off|hold\b|withhold|no\s|not giving|don'?t give|do not give|skip(ping)?|without)/i;
-
+const NEGATION_PATTERN = /\b(hold off|holding off|hold\b|withhold|no\s|not giving|don'?t give|do not give|skip(ping)?|without|on hold|defer|delay)\b/i;
 const STRONG_ADMIN_MARKER =
   /\b(push(ed|ing)?|giv(e|en|ing)|gave|administer(ed|ing)?|on board|another round|round of|going in)\b/i;
 
@@ -69,6 +70,8 @@ const TERMINATION_PATTERN =
   /\b(time of death|calling it|call(ing)? the code|stop(ping)? the code|terminat(e|ing) the code|ending the code)\b/i;
 const CODE_STARTED_PATTERN =
   /\b(code blue|calling a code|starting the code|code has started|code started|rapid response (called|activated))\b/i;
+const CPR_DEPTH_PATTERN = /\b(\d+)\s*(centimeters?|cm)\b|\b(too (shallow|deep)|good depth)\b/i;
+const CPR_RATE_PATTERN = /\b(hundred|100|one-twenty|120)\s*(compressions?|per minute|bpm)\b/i;
 
 const CPR_START_PATTERN = /\b(start(ing)?|begin(ning)?|initiat(e|ing))\s+(compressions|cpr)\b|\b(compressions|cpr)\s+(start(ed|ing)?|begun|begin)\b/i;
 const CPR_RESUME_PATTERN =
@@ -76,11 +79,43 @@ const CPR_RESUME_PATTERN =
 const CPR_PAUSE_PATTERN =
   /\b(hold(ing)?|paus(e|ing)|stop(ping)?)\s+(compressions|cpr)\b|\bcheck(ing)?\s+(the\s+)?(pulse|rhythm)\b|\bpulse check\b/i;
 
+const GLUCOSE_PATTERN = /\bglucose\b|\bs\s?100\b|\bbs\b/i;
+const TEMP_PATTERN = /\btemperature\b|\btemp\b/i;
+
+const FALSE_POSITIVE_SUPPRESSION = [
+  /\b(what (was|is)|review|check|could|should|might|might've)\s+(the\s+)?(rhythm|vfib|pulseless|asystole)/i,
+  /\b(normal\s+)?(sinus\s+rhythm\s+)?for\s+\d+\s+seconds/i, // "normal sinus for 5 seconds" = rhythm check, not a reset
+];
+
+
+function matchCPRQuality(text, timestamp) {
+  if (/\b(compressions?|cpr)\b/i.test(text)) {
+    const depthMatch = text.match(CPR_DEPTH_PATTERN);
+    const rateMatch = text.match(CPR_RATE_PATTERN);
+    if (depthMatch || rateMatch) {
+      return baseEvent("cpr_quality_check", timestamp, text, {
+        depth_cm: depthMatch?.[1],
+        rate_bpm: rateMatch?.[1],
+      });
+    }
+  }
+  return null;
+}
+
+// the previous one was missing some common patterns
+
 function extractEnergyJoules(text) {
-  const digitMatch = text.match(/\b(\d{2,3})\s*(joules|j)\b/i);
+  const digitMatch = text.match(/\b(\d{2,3})\s*(joules?|j)\b/i);
   if (digitMatch) return parseInt(digitMatch[1], 10);
+  
+  // Add: "charge to 200"
+  const chargeMatch = text.match(/charge\s+(to\s+)?(\d{2,3})\b/i);
+  if (chargeMatch) return parseInt(chargeMatch[2], 10);
+  
+  // Add: "360 joules" spelled out
   const bareDigitMatch = text.match(/\bto\s+(\d{2,3})\b/i);
   if (bareDigitMatch) return parseInt(bareDigitMatch[1], 10);
+  
   for (const [pattern, value] of NUMBER_WORDS) {
     if (pattern.test(text)) return value;
   }
