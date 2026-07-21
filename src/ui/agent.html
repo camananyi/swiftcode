@@ -19,6 +19,19 @@
     --purple: #9b82ff;
     --mono: "SF Mono", "Menlo", "Consolas", monospace;
   }
+  html.light {
+    --bg: #eef1f6;
+    --panel: #ffffff;
+    --panel-2: #f2f5f9;
+    --border: #d7dde7;
+    --text: #1c2433;
+    --text-dim: #5d6a7e;
+    --ok: #0e9c62;
+    --warning: #a87508;
+    --alert: #d63a4e;
+    --accent: #1f6fd6;
+    --purple: #6b4fd8;
+  }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
@@ -29,6 +42,8 @@
     color: var(--text);
     font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
   }
+  html.light body, html.light { background: var(--bg); }
+  html.light ::-webkit-scrollbar-thumb { background: #c3ccd9; }
   ::-webkit-scrollbar { width: 9px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #2b3442; border-radius: 5px; }
@@ -40,7 +55,18 @@
   header { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
   header h1 { font-size: 20px; margin: 0; }
   header .tagline { font-size: 12.5px; color: var(--text-dim); margin: 4px 0 0; }
-  .head-right { display: flex; align-items: center; gap: 10px; }
+  .head-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .head-right > button {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .head-right > button:hover { border-color: var(--accent); color: var(--accent); }
   .clock { font-family: var(--mono); font-size: 15px; color: var(--text-dim); }
   .clock strong { color: var(--text); font-size: 17px; }
   #connectivity {
@@ -164,6 +190,8 @@
     </div>
     <div class="head-right">
       <span class="clock">Code <strong id="elapsed">-:--</strong></span>
+      <button id="view-switch">Console View</button>
+      <button id="theme-toggle">Theme: Auto</button>
       <div id="connectivity" class="checking"><span class="dot"></span><span id="connectivity-label">Checking...</span></div>
     </div>
   </header>
@@ -615,13 +643,42 @@
   connectWebSocket();
   initConnectivity();
 
+  // Theme: auto follows time of day (light 7am to 7pm); clicking cycles
+  // Auto, Light, Dark, persisted across visits.
+  const themeToggle = document.getElementById("theme-toggle");
+  function applyTheme() {
+    const pref = localStorage.getItem("swiftcode_theme") || "auto";
+    const hour = new Date().getHours();
+    const light = pref === "light" || (pref === "auto" && hour >= 7 && hour < 19);
+    document.documentElement.classList.toggle("light", light);
+    themeToggle.textContent = "Theme: " + pref.charAt(0).toUpperCase() + pref.slice(1);
+  }
+  themeToggle.addEventListener("click", () => {
+    const order = ["auto", "light", "dark"];
+    const current = localStorage.getItem("swiftcode_theme") || "auto";
+    localStorage.setItem("swiftcode_theme", order[(order.indexOf(current) + 1) % order.length]);
+    applyTheme();
+  });
+  applyTheme();
+  setInterval(applyTheme, 60000);
+
+  // Switch to the console view in the same tab: sessionStorage keeps the sid,
+  // so the session carries over untouched.
+  document.getElementById("view-switch").addEventListener("click", () => {
+    window.location.href = "/?switch=1";
+  });
+
   // Fresh session on every load: clear this tab's own session, then start
-  // listening immediately. Other visitors' sessions are unaffected. If the
-  // browser blocks the mic without a user gesture (first visit, or permission
-  // not yet granted), the toggle still works manually.
+  // listening immediately. Other visitors' sessions are unaffected. Arriving
+  // via the view switcher (?switch=1) keeps the session instead of resetting.
+  // If the browser blocks the mic without a user gesture (first visit, or
+  // permission not yet granted), the toggle still works manually.
   (async function autoStart() {
-    try { await fetch(withSid("/api/reset"), { method: "POST" }); } catch { /* server unreachable; stream will show it */ }
-    const replayParam = new URLSearchParams(location.search).get("replay");
+    const params = new URLSearchParams(location.search);
+    if (!params.get("switch")) {
+      try { await fetch(withSid("/api/reset"), { method: "POST" }); } catch { /* server unreachable; stream will show it */ }
+    }
+    const replayParam = params.get("replay");
     if (replayParam) {
       await fetch(withSid("/api/replay"), {
         method: "POST",
